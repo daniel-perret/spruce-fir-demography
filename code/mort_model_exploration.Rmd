@@ -1,0 +1,642 @@
+---
+title: "mortality_modeling"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      prompt = FALSE,
+                      error = TRUE,
+                      message = FALSE,
+                      cache = FALSE,
+                      eval = TRUE,
+                      eval.after = "fig.cap")
+
+library(tidyverse)
+library(rFIA)
+library(ggplot2)
+library(ggExtra)
+library(rgdal)
+library(sp)
+library(ggsci)
+library(raster)
+library(splines)
+library(lme4)
+library(patchwork)
+select <- dplyr::select
+
+theme_set(theme_bw())
+theme_update(text = element_text(size=16, color = "black"),
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             strip.background = element_blank(),
+             panel.border=element_rect(size=1.5))
+
+# source("/Users/DanielPerret/Box/01. daniel.perret Workspace/status_trends/new_rFIA_fns.R")
+# source("/Users/DanielPerret/Box/01. daniel.perret Workspace/status_trends/old_rFIA_fns.R")
+source("/Users/DanielPerret/Box/01. daniel.perret Workspace/status_trends/growMort_rewrite.R")
+
+```
+
+This is just an exploratory document that builds and plays with some of the climateXdisturbance mortality models that I've been building and thinking about recently
+
+The structure that I've kind of landed on after the last week or so of thinking is such
+- response -- proportional mortality over remeasurement period at each site
+- fixed effects:
+- climate anomalies (MAT, MAP, CMD, etc)
+- proportion of *ecoregion* impacted by diseases, insects, fire
+- interactions between all of above
+- random effects:
+- site in ecoregion nested intercepts
+- ecoregion slopes?
+
+So this should be a GLMM with a binomial distribution and weights proportional to the denominator of the response.
+(is that right???)
+
+
+
+BUILDING COMBINED DATAFRAME:
+
+Here's the area estimation for disturbance agents:
+
+```{r}
+## playing with area estimation based on either condition classes or whether mortality was observed
+
+popinfo <- rFIA::getDesignInfo(all.fia,type="ALL") %>% 
+  left_join(all.fia$POP_STRATUM %>% 
+              select(STRATUM_CN=CN,
+                     EXPNS),
+            by="STRATUM_CN")
+
+View(plot.summary)
+
+fire.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="fire") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+insect.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="insect") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+disease.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="disease") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+animal.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="animal") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+competition.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="competition") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+weather.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="weather") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+land.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="land_use") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+unknown.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="unknown") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+all.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19) %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+mort.area.all <- all.fia$PLOT %>% 
+  left_join(popinfo %>% 
+              select(PLT_CN,EXPNS)) %>%
+  summarise(fire.area = sum(EXPNS*ifelse(PLT_CN %in% fire.plots, 1, 0), na.rm=T),
+            insect.area = sum(EXPNS*ifelse(PLT_CN %in% insect.plots, 1, 0), na.rm=T),
+            disease.area = sum(EXPNS*ifelse(PLT_CN %in% disease.plots, 1, 0), na.rm=T),
+            id.area = sum(EXPNS*ifelse(PLT_CN %in% c(disease.plots,insect.plots), 1, 0), na.rm=T),
+            fid.area = sum(EXPNS*ifelse(PLT_CN %in% c(fire.plots,disease.plots,insect.plots), 1, 0), na.rm=T),
+            animal.area = sum(EXPNS*ifelse(PLT_CN %in% animal.plots, 1, 0), na.rm=T),
+            competition.area = sum(EXPNS*ifelse(PLT_CN %in% competition.plots, 1, 0), na.rm=T),
+            weather.area = sum(EXPNS*ifelse(PLT_CN %in% weather.plots, 1, 0), na.rm=T),
+            land.area = sum(EXPNS*ifelse(PLT_CN %in% land.plots, 1, 0), na.rm=T),
+            unknown.area = sum(EXPNS*ifelse(PLT_CN %in% unknown.plots, 1, 0), na.rm=T),
+            total.area = sum(EXPNS*ifelse(PLT_CN %in% all.plots, 1, 0), na.rm=T))
+
+mort.area.er <- all.fia$PLOT %>% 
+  left_join(popinfo %>% 
+              select(PLT_CN,EXPNS)) %>%
+  group_by(ECOSUBCD) %>%
+  filter(ECOSUBCD %in% er4.abla$MAP_UNIT_S) %>% 
+  summarise(area.fire = sum(EXPNS*ifelse(PLT_CN %in% fire.plots, 1, 0), na.rm=T),
+            area.insect = sum(EXPNS*ifelse(PLT_CN %in% insect.plots, 1, 0), na.rm=T),
+            area.disease = sum(EXPNS*ifelse(PLT_CN %in% disease.plots, 1, 0), na.rm=T),
+            area.id = sum(EXPNS*ifelse(PLT_CN %in% c(disease.plots,insect.plots), 1, 0), na.rm=T),
+            area.fid = sum(EXPNS*ifelse(PLT_CN %in% c(fire.plots,disease.plots,insect.plots), 1, 0), na.rm=T),
+            area.animal = sum(EXPNS*ifelse(PLT_CN %in% animal.plots, 1, 0), na.rm=T),
+            area.competition = sum(EXPNS*ifelse(PLT_CN %in% competition.plots, 1, 0), na.rm=T),
+            area.weather = sum(EXPNS*ifelse(PLT_CN %in% weather.plots, 1, 0), na.rm=T),
+            area.land = sum(EXPNS*ifelse(PLT_CN %in% land.plots, 1, 0), na.rm=T),
+            area.unknown = sum(EXPNS*ifelse(PLT_CN %in% unknown.plots, 1, 0), na.rm=T),
+            area.total = sum(EXPNS*ifelse(PLT_CN %in% all.plots, 1, 0), na.rm=T))
+
+#get MORT DECOMP
+```
+
+Here's getting stand-level characteristics
+```{r}
+
+abla.ba.change <- growMort_dlp(db = all.fia,
+                               stateVar = "BAA",
+                               #polys=er4.abla,
+                               treeDomain = SPCD==19,
+                               totals = TRUE,
+                               byPlot = TRUE,
+                               returnSpatial = F, 
+                               nCores = 4,
+                               variance = TRUE,
+                               sizeThresh=1,
+                               evals = evals)
+
+all.ba.change <-   growMort_dlp(db = all.fia,
+                                stateVar = "BAA",
+                                #polys=er4.abla,
+                                #treeDomain = SPCD==19,
+                                totals = TRUE,
+                                byPlot = TRUE,
+                                returnSpatial = F, 
+                                nCores = 4,
+                                variance = TRUE,
+                                sizeThresh=1,
+                                evals = evals)
+
+ba <- abla.ba.change %>% 
+  select(PLT_CN,
+         PREV_BAA_abla = PREV_BAA,
+         CURR_BAA_abla = CURR_BAA) %>% 
+  left_join(all.ba.change %>% 
+              select(PLT_CN,
+                     PREV_BAA_all = PREV_BAA,
+                     CURR_BAA_all = CURR_BAA),
+            by="PLT_CN") %>% 
+  mutate(TOT_BAA_CHNG_all = CURR_BAA_all - PREV_BAA_all,
+         TOT_BAA_CHNG_abla = CURR_BAA_abla - PREV_BAA_abla,
+         BAA_CHNG_PROP_all = TOT_BAA_CHNG_all/PREV_BAA_all,
+         BAA_CHNG_PROP_abla = TOT_BAA_CHNG_abla/PREV_BAA_abla)
+
+```
+
+
+And here's the complete dataset -- all mortality estimates and climate data at the plot level, disturbance information at the ecoregion subsection level
+
+```{r}
+
+## this is from mort_decomp
+
+evals <- c(21903,41903,61903,81903,161903,301903,321903,351903,411903,491903,531903,561903)
+
+tpa.change <- all.fia %>% 
+  growMort_dlp(db = .,
+               stateVar = "TPA",
+               #polys=er4.abla,
+               treeDomain = SPCD==19,
+               totals = TRUE,
+               byPlot = TRUE,
+               returnSpatial = T, 
+               nCores = 4,
+               variance = TRUE,
+               sizeThresh=1,
+               evals = evals)
+
+tpa.mort.agent <- all.fia %>% 
+  growMort_dlp(db = .,
+               stateVar = "TPA",
+               #polys=er4.abla,
+               treeDomain = SPCD==19,
+               totals = TRUE,
+               grpBy=agent_key,
+               byPlot = TRUE,
+               returnSpatial = T, 
+               nCores = 4,
+               variance = TRUE,
+               sizeThresh=1,
+               evals = evals)
+
+mort.decomp <- tpa.change %>% 
+  sf::st_drop_geometry() %>% 
+  filter(CURR_TPA > 0 | PREV_TPA >0) %>% 
+  left_join(tpa.mort.agent %>%
+              sf::st_drop_geometry() %>% 
+              #filter(agent_key=="fire") %>% 
+              #filter(agent_key%in%c("insects","disease")) %>% 
+              group_by(PLT_CN) %>% 
+              summarise(TOT_MORT = sum(CURR_TPA-PREV_TPA,na.rm=T)*-1,
+                        FIRE_MORT = sum((CURR_TPA-PREV_TPA)*ifelse(agent_key=="fire",1,0),na.rm=T)*-1,
+                        DISEASE_MORT = sum((CURR_TPA-PREV_TPA)*ifelse(agent_key=="disease",1,0),na.rm=T)*-1,
+                        INSECT_MORT = sum((CURR_TPA-PREV_TPA)*ifelse(agent_key=="insect",1,0),na.rm=T)*-1,
+                        ID_MORT = sum((CURR_TPA-PREV_TPA)*
+                                        ifelse(agent_key%in%c("insect","disease"),1,0))*-1),na.rm=T)%>%
+  mutate(TOT_MORT = ifelse(is.na(TOT_MORT),0,TOT_MORT),
+         TOT_MORTPERC = round(TOT_MORT/PREV_TPA,6),
+         FIRE_MORT = ifelse(is.na(FIRE_MORT),0,FIRE_MORT),
+         INSECT_MORT = ifelse(is.na(INSECT_MORT),0,INSECT_MORT),
+         DISEASE_MORT = ifelse(is.na(DISEASE_MORT),0,DISEASE_MORT),
+         ID_MORT = ifelse(is.na(ID_MORT),0,ID_MORT),
+         CHNG_TPA_TOT = (CURR_TPA-PREV_TPA),
+         RECR_est = (CURR_TPA-PREV_TPA) + TOT_MORT,
+         fire.pace = ifelse(FIRE_MORT>RECR_est, "no", "yes"),
+         id.pace = ifelse(ID_MORT > RECR_est, "no", "yes"),
+         other.pace = ifelse(TOT_MORT-(FIRE_MORT+ID_MORT) > RECR_est, "no", "yes"),
+         all.pace = ifelse(TOT_MORT > RECR_est, "no","yes")) %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN, INVYR, ELEV, LON, LAT, ECOSUBCD,   MAT:DD1040_base),
+            by="PLT_CN") %>% 
+  mutate(MAT_anom = MAT_remper - MAT_base,
+         MAP_anom = MAP_remper - MAP_base,
+         CMD_anom = CMD_remper - CMD_base,
+         MWMT_anom = MWMT_remper - MWMT_base,
+         MCMT_anom = MCMT_remper - MCMT_base,
+         MSP_anom = MSP_remper - MSP_base,
+         AHM_anom = AHM_remper - AHM_base,
+         SHM_anom = SHM_remper - SHM_base,
+         NFFD_anom = NFFD_remper - NFFD_base,
+         FFP_anom = FFP_remper - FFP_base,
+         EMT_anom = EMT_remper - EMT_base,
+         EXT_anom = EXT_remper - EXT_base,
+         CMI_anom = CMI_remper - CMI_base,
+         Eref_anom = Eref_remper - Eref_base,
+  ) %>% 
+  left_join(mort.area.er %>% 
+              mutate(area.fire.prop = area.fire/area.total,
+                     area.insect.prop = area.insect/area.total,
+                     area.disease.prop = area.disease/area.total,
+                     area.id.prop = area.id/area.total,
+                     area.fid.prop = area.fid/area.total
+              ), 
+            by="ECOSUBCD") %>% 
+  left_join(all.fia$COND %>% 
+              filter(CONDID==1) %>% 
+              mutate(
+                FORTYPGRP_key = case_when(
+                  substr(FORTYPCD,1,2) == 20 ~ "Douglas fir",
+                  substr(FORTYPCD,1,2) == 22 ~ "Ponderosa pine",
+                  substr(FORTYPCD,1,2) == 24 ~ "Western white pine",
+                  substr(FORTYPCD,1,2) == 26 ~ "Fir/spruce/hemlock",
+                  substr(FORTYPCD,1,2) == 27 ~ "Fir/spruce/hemlock", # check this one!
+                  substr(FORTYPCD,1,2) == 28 ~ "Lodgepole pine",
+                  substr(FORTYPCD,1,2) == 30 ~ "Hemlock/Sitka spruce",
+                  substr(FORTYPCD,1,2) == 32 ~ "Western larch",
+                  substr(FORTYPCD,1,2) == 36 ~ "Other western softwoods",
+                  substr(FORTYPCD,1,2) == 70 ~ "Elm/ash/cottonwood",
+                  substr(FORTYPCD,1,2) == 90 ~ "Aspen/birch",
+                  substr(FORTYPCD,1,2) == 91 ~ "Alder/maple",
+                  substr(FORTYPCD,1,2) == 97 ~ "Woodland hardwoods",
+                  substr(FORTYPCD,1,2) == 99 ~ "Nonstocked",
+                  is.na(FORTYPCD) ~ "Unknown"),
+                FORTYPCD_key = case_when(
+                  FORTYPCD==201 ~ "Douglas fir",
+                  FORTYPCD==221 ~ "Ponderosa pine",
+                  FORTYPCD==241 ~ "Western white pine",
+                  FORTYPCD==261 ~ "White fir",
+                  FORTYPCD==262 ~ "Red fir",
+                  FORTYPCD==263 ~ "Noble fir",
+                  FORTYPCD==264 ~ "Pacific silver fir",
+                  FORTYPCD==265 ~ "Engelmann spruce",
+                  FORTYPCD==266 ~ "Engelmann spruce/subalpine fir",
+                  FORTYPCD==267 ~ "Grand fir",
+                  FORTYPCD==268 ~ "Subalpine fir",
+                  FORTYPCD==269 ~ "Blue spruce",
+                  FORTYPCD==270 ~ "Mountain hemlock",
+                  FORTYPCD==271 ~ "Alaska-yellow-cedar",
+                  FORTYPCD==281 ~ "Lodgepole pine",
+                  FORTYPCD==301 ~ "Western hemlock",
+                  FORTYPCD==304 ~ "Western redcedar",
+                  FORTYPCD==321 ~ "Western larch",
+                  FORTYPCD==366 ~ "Limber pine",
+                  FORTYPCD==367 ~ "Whitebark pine",
+                  FORTYPCD==368 ~ "Misc. softwoods",
+                  FORTYPCD==703 ~ "Cottonwood",
+                  FORTYPCD==709 ~ "Cottonwood/willow",
+                  FORTYPCD==901 ~ "Aspen",
+                  FORTYPCD==911 ~ "Red alder",
+                  FORTYPCD==971 ~ "Deciduous oak woodland",
+                  FORTYPCD==974 ~ "Cercocarpus woodland",
+                  FORTYPCD==975 ~ "Intermountain maple woodland",
+                  FORTYPCD==999 ~ "Nonstocked",
+                  is.na(FORTYPCD) ~ "Unknown")) %>% 
+              select(PLT_CN,STDAGE,STDSZCD,contains("DSTRBCD"),contains("_key")),
+            by="PLT_CN") %>% 
+  left_join(ba,
+            by="PLT_CN") %>% 
+  filter(!PLT_CN %in% hold,
+         !is.na(TOT_MORTPERC),
+         !is.na(STDAGE),
+         TOT_MORTPERC>0,
+         !is.na(area.id.prop),
+         !is.na(MAT_remper)) %>% 
+  mutate(ECOSECCD = substr(ECOSUBCD, 1, nchar(ECOSUBCD)-1),
+         ECOPRVCD = substr(ECOSUBCD,1,nchar(ECOSUBCD)-2),
+         PREV_BA_meanabla = PREV_BAA_abla/PREV_TPA,
+         across(MAT:Eref_anom,scale,.names = "{.col}_scaled"),
+         STDAGE_scaled=scale(STDAGE),
+         across(contains("BAA"),scale,.names="{.col}_scaled"))
+
+```
+
+Here's an initial model:
+
+```{r}
+library(ggeffects)
+library(performance)
+
+m.er <- glmer(data = mort.decomp %>% 
+                filter(!is.na(TOT_MORTPERC),
+                       TOT_MORTPERC>0,
+                       !is.na(area.id.prop),
+                       !is.na(MAT_remper)) %>%
+                mutate(across(MAT:Eref_anom,scale,.names = "{.col}_scaled")),
+              
+              formula = TOT_MORTPERC ~ INVYR +
+                PREV_BAA_abla_scaled + PREV_BAA_all_scaled +
+                area.fire.prop*MAT_anom_scaled+#*CMD_anom_scaled +
+                area.id.prop*MAT_anom_scaled+#*CMD_anom_scaled +
+                area.fire.prop:area.id.prop+
+                + FORTYPGRP_key*MAT_anom_scaled +
+                (1|ECOSUBCD),
+              
+              # formula = TOT_MORTPERC ~ #INVYR +
+              #   area.fire.prop*MAT_anom_scaled +
+              #   #PREV_BAA_abla_scaled*PREV_BAA_all_scaled +
+              #   area.id.prop*MAT_anom_scaled +
+              #   area.id.prop:area.fire.prop +
+              #   MAT_anom_scaled*FORTYPGRP_key +
+              #   (1|ECOSUBCD),
+              
+              # formula = TOT_MORTPERC ~ area.fire.prop*MAT_anom +
+              #   area.fire.prop*MAP_anom + area.fire.prop*CMD_anom +
+              #   area.id.prop*MAT_anom + area.id.prop*MAP_anom +
+              #   area.id.prop*CMD_anom +check
+              #   (1|ECOSUBCD),
+              family = binomial(),
+              weights = PREV_TPA,
+              nAGQ = 0,
+              control = glmerControl(optimizer = "nlminbwrap"))
+
+summary(m.er)
+
+performance(m.er)
+
+plot(m.er@frame$TOT_MORTPERC, 
+     predict(m.er,type="response",re.form=NULL));abline(0,1,col="red")
+
+plot(predict(m.er,re.form=NULL,type="response"),predict(m.er,re.form=NA,type="response"))
+
+check_model(m.er)
+
+```
+
+```{r}
+ggpredict(m.er,
+          terms = c("area.fire.prop [all]", "MAT_anom_scaled [-2,-1,0,1,2]"),
+          type="fe") %>% 
+  ggplot(.,
+         aes(x, predicted, groups = group)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              fill="black",
+              alpha=0.1)+
+  geom_line(aes(col = group),
+            lwd=1.5) +
+  labs(x = "Area proportion impacted by fire",
+       y= "Predicted mortality (marginal)") +
+  scale_color_manual(name = "MAT anomaly \n(scaled)",
+                     values = c("-2" = "dodgerblue4",
+                                "-1" = "dodgerblue1",
+                                "0" = "black",
+                                "1" = "orange",
+                                "2" = "red"))
+
+ggpredict(m.er,
+          terms = c("area.id.prop [all]", "MAT_anom_scaled [-2,-1,0,1,2]"),
+          type="fe") %>% 
+  ggplot(.,
+         aes(x, predicted, groups = group)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              fill="black",
+              alpha=0.1)+
+  geom_line(aes(col = group),
+            lwd=1.5) +
+  labs(x = "Area proportion impacted by insects/disease",
+       y= "Predicted mortality (marginal)") +
+  scale_color_manual(name = "MAT anomaly \n(scaled)",
+                     values = c("-2" = "dodgerblue4",
+                                "-1" = "dodgerblue1",
+                                "0" = "black",
+                                "1" = "orange",
+                                "2" = "red"))
+
+```
+
+```{r}
+ggpredict(m.er,
+          terms = c("MAT_anom_scaled [all]", "area.fire.prop [0, 0.25, 0.5, 0.75, 1]"),
+          type="fe") %>% 
+  ggplot(.,
+         aes(x, predicted, groups = group)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              fill="darkgray",
+              alpha=0.4)+
+  geom_line(aes(col = group),
+            lwd=1.5) +
+  labs(x = "Scaled MAT anomaly",
+       y= "Predicted mortality (marginal)") +
+  scale_color_manual(name = "Proportion burned",
+                     values = c("0" = "dodgerblue4",
+                                "0.25" = "dodgerblue1",
+                                "0.5" = "black",
+                                "0.75" = "orange",
+                                "1" = "red"))
+
+ggpredict(m.er,
+          terms = c("MAT_anom_scaled [all]", "area.id.prop [0, 0.25, 0.5, 0.75, 1]"),
+          type="fe") %>% 
+  ggplot(.,
+         aes(x, predicted, groups = group)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              fill="darkgray",
+              alpha=0.4)+
+  geom_line(aes(col = group),
+            lwd=1.5) +
+  labs(x = "Scaled MAT anomaly",
+       y= "Predicted mortality (marginal)") +
+  scale_color_manual(name = "Proportion insects/disease",
+                     values = c("0" = "dodgerblue4",
+                                "0.25" = "dodgerblue1",
+                                "0.5" = "black",
+                                "0.75" = "orange",
+                                "1" = "red"))
+
+```
+
+```{r}
+
+s.mean <- mean(mort.decomp$MAT_anom)
+s.sd <- sd(mort.decomp$MAT_anom)
+
+ggpredict(m.er,
+          terms = c("MAT_anom.er_scaled [-4:5,by=0.1]", 
+                    "area.id.prop [0, 0.3, 0.6, 1]", 
+                    "area.fire.prop [0,0.3,0.6,1]"),
+          #condition = c(INVYR=2019),
+          #               PREV_BAA_abla_scaled = 0,
+          #               PREV_BAA_all_scaled = 0),
+          type="fe") %>% as.data.frame() %>% 
+  ggplot(.,
+         aes((x*s.sd)+s.mean, predicted*100, groups = group)) +
+  geom_ribbon(aes(ymin = conf.low*100,
+                  ymax = conf.high*100),
+              fill="darkgray",
+              alpha=0.4)+
+  geom_line(aes(col = group),
+            lwd=1.5) +
+  geom_vline(xintercept = s.mean,
+             lty=2)+
+  labs(x = "MAT anomaly (C)",
+       y= "Predicted % mortality") +
+  scale_color_manual(name = "Proportion \ninsects/disease",
+                     values = c("0" = "dodgerblue4",
+                                "0.3" = "dodgerblue1",
+                                #"0.5" = "black",
+                                "0.6" = "orange",
+                                "1" = "red")) +
+  geom_rug(sides = "b", data = mort.decomp, aes(x = MAT_anom), inherit.aes=F)+
+  facet_wrap(facets=~facet,
+             labeller = as_labeller(c("0" = "0% burned",
+                                      "0.3" = "30% burned",
+                                      "0.6" = "60% burned",
+                                      "1" = "100% burned")))
+
+```
+
+```{r}
+
+ggpredict(m.er,
+          terms = c("area.id.prop [0:1, by = 0.05]",
+                    "MAT_anom_scaled [-2,-1,0,1,2]", 
+                    "area.fire.prop [0,0.3,0.6,1]"),
+          condition = c(FORTYPGRP_key = "Fir/spruce/hemlock"),
+          type="fe") %>%
+  ggplot(.,
+         aes(x, predicted*100, groups = group)) +
+  geom_ribbon(aes(ymin = conf.low*100,
+                  ymax = conf.high*100),
+              fill="darkgray",
+              alpha=0.4)+
+  geom_line(aes(col = group),
+            lwd=1.5)+
+  labs(x = "Area insect/disease",
+       y= "Predicted % mortality") +
+  scale_color_manual(name = "MAT anomaly \n(scaled)",
+                     values = c("-2" = "dodgerblue4",
+                                "-1" = "dodgerblue1",
+                                "0" = "black",
+                                "1" = "orange",
+                                "2" = "red")) +
+  facet_wrap(facets=~facet,
+             labeller = as_labeller(c("0" = "0% burned",
+                                      "0.3" = "30% burned",
+                                      "0.6" = "60% burned",
+                                      "1" = "100% burned")))
+
+```
+
+```{r}
+ggpredict(m.er,
+          terms = c("STDAGE_scaled [all]","PREV_BAA_all_scaled [-2,-1,0,1,2]"),
+          #condition = c(FORTYPGRP_key = "Fir/spruce/hemlock"),
+          type="fe") %>% 
+  ggplot(.,
+         aes(x, 
+             predicted,
+             groups=group)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              fill="darkgray",
+              alpha=0.4)+
+  geom_line(aes(col=group),
+            lwd=1.5) +
+  labs(x = "Stand age (scaled)",
+       y= "Predicted mortality (marginal)") 
+
+```
+
+
+```{r}
+ggpredict(m.er,
+          terms = c("PREV_BAA_all_scaled [all]", "STDAGE_scaled [-2,-1,0,1,2]"),
+          #condition = c(FORTYPGRP_key = "Fir/spruce/hemlock"),
+          type="fe") %>% 
+  ggplot(.,
+         aes(x, predicted,
+             groups=group)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              fill="darkgray",
+              alpha=0.4)+
+  geom_line(lwd=1.5,
+            aes(col=group)) +
+  labs(x = "Stand basal area (scaled)",
+       y= "Predicted mortality (marginal)") 
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

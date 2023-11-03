@@ -1,0 +1,571 @@
+---
+title: "FIA data and estimation code "
+date: "`r Sys.Date()`"
+author: "D. Perret"
+output: 
+  rmdformats::robobook:
+    code_folding: hide
+    self_contained: false
+---
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100x%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      prompt = FALSE,
+                      error = TRUE,
+                      message = FALSE,
+                      cache = FALSE,
+                      cache.lazy = FALSE,
+                      eval = TRUE,
+                      eval.after = "fig.cap")
+
+library(tidyverse)
+library(rFIA)
+library(ggplot2)
+library(ggExtra)
+library(rgdal)
+library(sp)
+library(ggsci)
+library(raster)
+library(splines)
+library(lme4)
+library(patchwork)
+select <- dplyr::select
+
+theme_set(theme_bw())
+theme_update(text = element_text(size=16, color = "black"),
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             strip.background = element_blank(),
+             panel.border=element_rect(size=1.5))
+
+source("/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/status_trends/growMort_rewrite.R")
+source("/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/status_trends/growMort_weighted.R")
+
+
+```
+
+
+### Data code {.tabset}
+#### --
+#### (FIA)
+```{r OLDfia.data, echo=T}
+
+all.fia <- readFIA(dir = "/Users/DanielPerret/Box/01. daniel.perret Workspace/fia_data/",
+                   common=T, states=c("WA","OR","ID","MT","WY","UT","CO",
+                                      "CA","NV","NM","AZ")) # %>% 
+#  clipFIA(.,mostRecent=T)
+
+#creating some fields in the FIADB
+all.fia$PLOT <- all.fia$PLOT %>% 
+  mutate(pltID = paste(UNITCD,STATECD,COUNTYCD,PLOT,sep="_"),
+         PLT_CN = CN,
+         ECOSUBCD = trimws(ECOSUBCD),
+         state_key = case_when(STATECD == 8 ~ "CO",
+                               STATECD == 30 ~ "MT",
+                               STATECD == 16 ~ "ID",
+                               STATECD == 41 ~ "OR",
+                               STATECD == 53 ~ "WA",
+                               STATECD == 49 ~ "UT",
+                               STATECD == 56 ~ "WY",
+                               STATECD == 6 ~ "CA",
+                               STATECD == 32 ~ "NV",
+                               STATECD == 35 ~ "NM",
+                               STATECD == 4 ~ "AZ"),
+         # abla.pres = ifelse(PLT_CN %in% all.fia$TREE %>%
+         #                      filter(SPCD==19) %>%
+         #                      distinct(PLT_CN),
+         #                    1,0)
+         ) %>% 
+  group_by(pltID) %>% 
+  mutate(most.recent = ifelse(MEASYEAR==max(MEASYEAR),
+                              "yes","no")) %>% 
+  ungroup() #%>% 
+  # left_join(.,
+  #           read.csv("/Users/DanielPerret/Box/01. daniel.perret Workspace/from_GEE/norm81m_extraction_allplots.csv", 
+  #                    header=T, stringsAsFactors=F) %>% 
+  #             as.data.frame() %>% 
+  #             select(PLT_CN,ppt,tmean),
+  #           by="PLT_CN")
+
+all.fia$COND <- all.fia$COND %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN,most.recent),
+            by="PLT_CN") %>% 
+  mutate(state_key = case_when(STATECD == 8 ~ "CO",
+                               STATECD == 30 ~ "MT",
+                               STATECD == 16 ~ "ID",
+                               STATECD == 41 ~ "OR",
+                               STATECD == 53 ~ "WA",
+                               STATECD == 49 ~ "UT",
+                               STATECD == 56 ~ "WY"))
+
+
+### THIS IS WHERE THE WYOMING DATA GETS LINKED AND UPDATED
+
+wy.p2a.plotlink <- read.csv("wy_p2alink.csv",header=T,stringsAsFactors=F) %>%
+  select(CN, PREV_PLT_CN.update = PREV_PLT_CN)
+
+### updating plots
+all.fia$PLOT <- all.fia$PLOT %>% 
+  left_join(., wy.p2a.plotlink,
+            by="CN") %>% 
+  mutate(PREV_PLT_CN = ifelse(!is.na(PREV_PLT_CN.update),
+                              PREV_PLT_CN.update,
+                              PREV_PLT_CN)) %>% 
+  select(-PREV_PLT_CN.update) %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN,MEASYEAR.prev = MEASYEAR),
+            by = c("PREV_PLT_CN"="PLT_CN")) %>% 
+  mutate(REMPER = ifelse(is.na(REMPER),
+                         MEASYEAR-MEASYEAR.prev,
+                         REMPER))
+
+### updating trees
+wy.p2a.treelink <- read.csv("wy_p2alink_tree.csv",header=T,stringsAsFactors=F) %>% 
+  rename(PREV_TRE_CN.update = PREV_TRE_CN)
+
+all.fia$TREE <- all.fia$TREE %>% 
+  left_join(., wy.p2a.treelink,
+            by="CN") %>% 
+  mutate(PREV_TRE_CN = ifelse(!is.na(PREV_TRE_CN.update),
+                              PREV_TRE_CN.update,
+                              PREV_TRE_CN)) %>% 
+  select(-PREV_TRE_CN.update,
+         -PREVDIA,
+         -PREV_STATUS_CD) %>% 
+  left_join(., all.fia$TREE %>% 
+              select(CN, PREVDIA=DIA, PREV_STATUS_CD = STATUSCD),
+            by = c("PREV_TRE_CN" = "CN"))
+  
+#creating fields and updating all SPCDs to most-recently ID'd SPCD
+all.fia$TREE <- all.fia$TREE %>% 
+   left_join(all.fia$PLOT %>% 
+              select(PLT_CN,most.recent),
+            by="PLT_CN") %>% 
+  mutate(TRE_CN = CN,
+         state_key = case_when(STATECD == 8 ~ "CO",
+                               STATECD == 30 ~ "MT",
+                               STATECD == 16 ~ "ID",
+                               STATECD == 41 ~ "OR",
+                               STATECD == 53 ~ "WA",
+                               STATECD == 49 ~ "UT",
+                               STATECD == 56 ~ "WY"),
+         agent_key = case_when(STATUSCD==2 & AGENTCD %in% c(00,70) ~ "unknown1",
+                               STATUSCD==2 & AGENTCD == 10 ~ "insect",
+                               STATUSCD==2 & AGENTCD == 20 ~ "disease",
+                               STATUSCD==2 & AGENTCD == 30 ~ "fire",
+                               STATUSCD==2 & AGENTCD == 40 ~ "animal",
+                               STATUSCD==2 & AGENTCD == 50 ~ "weather",
+                               STATUSCD==2 & AGENTCD == 60 ~ "competition",
+                               STATUSCD==2 & AGENTCD == 80 ~ "land use",
+                               STATUSCD==2 & is.na(AGENTCD) & 
+                                 (PREV_STATUS_CD==1 | is.na(PREV_STATUS_CD)) ~ "unknown2")) %>% 
+  left_join(.,
+            all.fia$TREE %>% 
+              select(PREV_TRE_CN, SPCD) %>% 
+              rename(LATER_SPCD=SPCD),
+            by=c("TRE_CN"="PREV_TRE_CN")) %>% 
+  mutate(SPCD = case_when(SPCD!=LATER_SPCD & !is.na(LATER_SPCD) ~ LATER_SPCD,
+                          is.na(LATER_SPCD) ~ SPCD,
+                          TRUE ~ SPCD),
+         SPCD = ifelse(SPCD==18, 19, SPCD))
+
+# some summary dataframes for convenience
+presabs <- all.fia$PLOT %>% 
+  filter(most.recent == "yes")
+
+abla.trees <- all.fia$TREE %>% 
+  filter(SPCD == 19)
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  mutate(abla.pres = ifelse(PLT_CN %in% unique(abla.trees$PLT_CN),
+                            1,0))
+
+abla.plots <- all.fia$PLOT %>% 
+  filter(PLT_CN %in% abla.trees$PLT_CN)
+
+abla.cond <- all.fia$COND %>% 
+  filter(PLT_CN %in% abla.plots$PLT_CN)
+  
+plot.summary <- all.fia$TREE %>% 
+  filter(most.recent == "yes",
+         PLT_CN %in% abla.plots$PLT_CN,
+         STATUSCD %in% 1:2
+         ) %>%
+  mutate(focal = ifelse(SPCD == "19", "abla", "nonabla"),
+         status = ifelse(STATUSCD == 1, "live","dead"),
+         DIAcm = DIA*2.54,
+         BAcm = pi*(DIAcm/2)^2,
+         BAcm.pa = BAcm*TPA_UNADJ) %>% 
+  group_by(PLT_CN, focal, status) %>% 
+  summarise(BAcm = sum(BAcm,na.rm=T),
+            meanBAcm = mean(BAcm,na.rm=T),
+            BAcm.pa = sum(BAcm.pa,na.rm=T),
+            stems = n(),
+            stems.pa = sum(TPA_UNADJ,na.rm=T)) %>%
+  ungroup() %>% 
+  pivot_wider(.,
+              names_from = c(focal,status),
+              names_glue = "{focal}.{status}.{.value}",
+              values_from = c(BAcm, meanBAcm, BAcm.pa, stems, stems.pa),
+              values_fill = 0) %>% 
+  mutate(abla.tot.stems.pa = abla.live.stems.pa+abla.dead.stems.pa,
+         abla.tot.BAcm.pa = abla.live.BAcm.pa+abla.dead.BAcm.pa,
+         abla.live.stems.prop = abla.live.stems.pa/abla.tot.stems.pa,
+         abla.live.BAcm.prop = abla.live.BAcm.pa/abla.tot.BAcm.pa,
+         
+         nonabla.tot.stems.pa = nonabla.live.stems.pa+nonabla.dead.stems.pa,
+         nonabla.tot.BAcm.pa = nonabla.live.BAcm.pa+nonabla.dead.BAcm.pa,
+         nonabla.live.stems.prop = nonabla.live.stems.pa/nonabla.tot.stems.pa,
+         nonabla.live.BAcm.prop = nonabla.live.BAcm.pa/nonabla.tot.BAcm.pa,
+         
+         tot.stems.pa = abla.tot.stems.pa + nonabla.tot.stems.pa,
+         tot.BAcm.pa = abla.tot.BAcm.pa + nonabla.tot.BAcm.pa) %>% 
+  left_join(., abla.plots,
+            by = "PLT_CN")
+
+tree.rmsr <- all.fia$TREE %>% 
+  filter(PREV_TRE_CN %in% TRE_CN,
+         PREV_STATUS_CD == 1,
+         STATUSCD != 0)
+
+abla.rmsr <- abla.trees %>% 
+  filter(PREV_STATUS_CD == 1,
+         STATUSCD != 0) %>% 
+  group_by(PLT_CN) %>% 
+  summarise(n.rmsr = n(),
+            n.mort = sum(STATUSCD == 2),
+            n.surv = sum(STATUSCD == 1),
+            n.harv = sum(STATUSCD == 3),
+            mort.prop = n.mort/n.rmsr,
+            surv.prop = n.surv/n.rmsr,
+            harv.prop = n.harv/n.rmsr) %>% 
+  left_join(plot.summary,
+            by = "PLT_CN") %>%
+  filter(!is.na(REMPER)) %>% 
+  mutate(ann.rate = 1-(1-mort.prop)^(1/REMPER))
+
+
+```
+
+```{r fia.data, echo=T}
+
+# reading downloaded FIA data from a local directory, using rFIA functionality
+
+all.fia <- readFIA(dir = "/Users/DanielPerret/Box/01. daniel.perret Workspace/fia_data/",
+                   common=T, states=c("WA","OR","ID","MT","WY","UT","CO",
+                                      "CA","NV","NM","AZ"))
+
+#creating some fields in various tables
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  mutate(pltID = paste(UNITCD,STATECD,COUNTYCD,PLOT,sep="_"),
+         PLT_CN = CN,
+         ECOSUBCD = trimws(ECOSUBCD),
+         state_key = case_when(STATECD == 8 ~ "CO",
+                               STATECD == 30 ~ "MT",
+                               STATECD == 16 ~ "ID",
+                               STATECD == 41 ~ "OR",
+                               STATECD == 53 ~ "WA",
+                               STATECD == 49 ~ "UT",
+                               STATECD == 56 ~ "WY",
+                               STATECD == 6 ~ "CA",
+                               STATECD == 32 ~ "NV",
+                               STATECD == 35 ~ "NM",
+                               STATECD == 4 ~ "AZ")) %>% 
+  group_by(pltID) %>% 
+  mutate(most.recent = ifelse(MEASYEAR==max(MEASYEAR),
+                              "yes","no")) %>% 
+  ungroup()
+
+all.fia$COND <- all.fia$COND %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN,most.recent),
+            by="PLT_CN") %>% 
+  mutate(state_key = case_when(STATECD == 8 ~ "CO",
+                               STATECD == 30 ~ "MT",
+                               STATECD == 16 ~ "ID",
+                               STATECD == 41 ~ "OR",
+                               STATECD == 53 ~ "WA",
+                               STATECD == 49 ~ "UT",
+                               STATECD == 56 ~ "WY"))
+
+
+# Because annual inventories began later in Wyoming, we need to link back to earlier period inventories in order to make our eventual change estimates. This code does that by using plot number links and tree azimuth and distance. Note that the files necessary to do this (i.e., "wy_p2alink.csv" and "wy_p2alink_tree.csv") are NOT included in these supplementary materials because they could be used to infer exact plot coordinates, which are protected.
+
+## plots
+wy.p2a.plotlink <- read.csv("wy_p2alink.csv",header=T,stringsAsFactors=F) %>%
+  select(CN, PREV_PLT_CN.update = PREV_PLT_CN)
+
+### updating plots
+all.fia$PLOT <- all.fia$PLOT %>% 
+  left_join(., wy.p2a.plotlink,
+            by="CN") %>% 
+  mutate(PREV_PLT_CN = ifelse(!is.na(PREV_PLT_CN.update),
+                              PREV_PLT_CN.update,
+                              PREV_PLT_CN)) %>% 
+  select(-PREV_PLT_CN.update) %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN,MEASYEAR.prev = MEASYEAR),
+            by = c("PREV_PLT_CN"="PLT_CN")) %>% 
+  mutate(REMPER = ifelse(is.na(REMPER),
+                         MEASYEAR-MEASYEAR.prev,
+                         REMPER))
+## trees
+wy.p2a.treelink <- read.csv("wy_p2alink_tree.csv",header=T,stringsAsFactors=F) %>% 
+  rename(PREV_TRE_CN.update = PREV_TRE_CN)
+
+all.fia$TREE <- all.fia$TREE %>% 
+  left_join(., wy.p2a.treelink,
+            by="CN") %>% 
+  mutate(PREV_TRE_CN = ifelse(!is.na(PREV_TRE_CN.update),
+                              PREV_TRE_CN.update,
+                              PREV_TRE_CN)) %>% 
+  select(-PREV_TRE_CN.update,
+         -PREVDIA,
+         -PREV_STATUS_CD) %>% 
+  left_join(., all.fia$TREE %>% 
+              select(CN, PREVDIA=DIA, PREV_STATUS_CD = STATUSCD),
+            by = c("PREV_TRE_CN" = "CN"))
+
+# Other data curation steps
+
+## creating some fields and updating all SPCDs to most-recently ID'd SPCD -- this is necessary because it's quite common for trees to change species ID, especially in smaller age classes.
+
+all.fia$TREE <- all.fia$TREE %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN,most.recent),
+            by="PLT_CN") %>% 
+  mutate(TRE_CN = CN,
+         state_key = case_when(STATECD == 8 ~ "CO",
+                               STATECD == 30 ~ "MT",
+                               STATECD == 16 ~ "ID",
+                               STATECD == 41 ~ "OR",
+                               STATECD == 53 ~ "WA",
+                               STATECD == 49 ~ "UT",
+                               STATECD == 56 ~ "WY"),
+         agent_key = case_when(STATUSCD==2 & AGENTCD %in% c(00,70) ~ "unknown1",
+                               STATUSCD==2 & AGENTCD == 10 ~ "insect",
+                               STATUSCD==2 & AGENTCD == 20 ~ "disease",
+                               STATUSCD==2 & AGENTCD == 30 ~ "fire",
+                               STATUSCD==2 & AGENTCD == 40 ~ "animal",
+                               STATUSCD==2 & AGENTCD == 50 ~ "weather",
+                               STATUSCD==2 & AGENTCD == 60 ~ "competition",
+                               STATUSCD==2 & AGENTCD == 80 ~ "land use",
+                               STATUSCD==2 & is.na(AGENTCD) & 
+                                 (PREV_STATUS_CD==1 | is.na(PREV_STATUS_CD)) ~ "unknown2")) %>% 
+  left_join(.,
+            all.fia$TREE %>% 
+              select(PREV_TRE_CN, SPCD) %>% 
+              rename(LATER_SPCD=SPCD),
+            by=c("TRE_CN"="PREV_TRE_CN")) %>% 
+  mutate(SPCD = case_when(SPCD!=LATER_SPCD & !is.na(LATER_SPCD) ~ LATER_SPCD,
+                          is.na(LATER_SPCD) ~ SPCD,
+                          TRUE ~ SPCD),
+         SPCD = ifelse(SPCD==18, 19, SPCD))
+
+## some summary dataframes and fields for convenience
+abla.trees <- all.fia$TREE %>% 
+  filter(SPCD == 19)
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  mutate(abla.pres = ifelse(PLT_CN %in% unique(abla.trees$PLT_CN),
+                            1,0))
+
+abla.plots <- all.fia$PLOT %>% 
+  filter(abla.pres==1)
+
+abla.cond <- all.fia$COND %>% 
+  filter(PLT_CN %in% abla.plots$PLT_CN)
+
+plot.summary <- all.fia$TREE %>% 
+  filter(most.recent == "yes",
+         PLT_CN %in% abla.plots$PLT_CN,
+         STATUSCD %in% 1:2
+  ) %>%
+  mutate(focal = ifelse(SPCD == "19", "abla", "nonabla"),
+         status = ifelse(STATUSCD == 1, "live","dead"),
+         DIAcm = DIA*2.54,
+         BAcm = pi*(DIAcm/2)^2,
+         BAcm.pa = BAcm*TPA_UNADJ) %>% 
+  group_by(PLT_CN, focal, status) %>% 
+  summarise(BAcm = sum(BAcm,na.rm=T),
+            meanBAcm = mean(BAcm,na.rm=T),
+            BAcm.pa = sum(BAcm.pa,na.rm=T),
+            stems = n(),
+            stems.pa = sum(TPA_UNADJ,na.rm=T)) %>%
+  ungroup() %>% 
+  pivot_wider(.,
+              names_from = c(focal,status),
+              names_glue = "{focal}.{status}.{.value}",
+              values_from = c(BAcm, meanBAcm, BAcm.pa, stems, stems.pa),
+              values_fill = 0) %>% 
+  mutate(abla.tot.stems.pa = abla.live.stems.pa+abla.dead.stems.pa,
+         abla.tot.BAcm.pa = abla.live.BAcm.pa+abla.dead.BAcm.pa,
+         abla.live.stems.prop = abla.live.stems.pa/abla.tot.stems.pa,
+         abla.live.BAcm.prop = abla.live.BAcm.pa/abla.tot.BAcm.pa,
+         
+         nonabla.tot.stems.pa = nonabla.live.stems.pa+nonabla.dead.stems.pa,
+         nonabla.tot.BAcm.pa = nonabla.live.BAcm.pa+nonabla.dead.BAcm.pa,
+         nonabla.live.stems.prop = nonabla.live.stems.pa/nonabla.tot.stems.pa,
+         nonabla.live.BAcm.prop = nonabla.live.BAcm.pa/nonabla.tot.BAcm.pa,
+         
+         tot.stems.pa = abla.tot.stems.pa + nonabla.tot.stems.pa,
+         tot.BAcm.pa = abla.tot.BAcm.pa + nonabla.tot.BAcm.pa) %>% 
+  left_join(., abla.plots,
+            by = "PLT_CN")
+
+
+```
+
+#### Climate data
+```{r climate.data, echo=T}
+
+# clim.norms <- read.csv("D:/coords_format_Normal_1981_2010Y.csv", header=T) %>% 
+#   select(PLT_CN=ID1,
+#          MAT,
+#          MAP,
+#          DD5,
+#          CMD,
+#          CMI,
+#          FFP) %>% 
+#   mutate(MAT = ifelse(MAT==-9999, NA_real_, MAT))
+# 
+# clim.ann <- read.csv("D:/coords_format_1901-2021Y.csv", header=T)
+# 
+# clim.remper <- clim.ann %>%
+#   select(PLT_CN=ID1,
+#          Year, 7:31) %>% 
+#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>% 
+#   left_join(all.fia$PLOT %>% 
+#               mutate(REMPER_END = MEASYEAR,
+#                      REMPER_START = MEASYEAR-round(REMPER,digits=0)) %>% 
+#               select(PLT_CN, REMPER_END, REMPER_START)) %>% 
+#   mutate(REMPER_START = ifelse(is.na(REMPER_START), REMPER_END, REMPER_START),
+#          across(3:27, .fns = ~ifelse(Year %in% c(REMPER_START:REMPER_END), .x, NA_real_))) %>%
+#   group_by(PLT_CN) %>% 
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names="{.col}_remper"))
+# 
+# clim.base <- clim.ann %>%
+#   select(PLT_CN=ID1,
+#          Year, 7:31) %>% 
+#   filter(Year %in% 1900:1950) %>% 
+#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>% 
+#   group_by(PLT_CN) %>% 
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names = "{.col}_base"))
+# 
+# clim.recent <- clim.ann %>%
+#   select(PLT_CN=ID1,
+#          Year, 7:31) %>% 
+#   filter(Year %in% 2010:2021) %>% 
+#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>% 
+#   group_by(PLT_CN) %>% 
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names = "{.col}_recent"))
+
+clim.norms <- read.csv("clim_norms.csv",header=T)
+clim.remper <- read.csv("clim_remper.csv", header = T)
+clim.base <- read.csv("clim_base.csv", header=T)
+clim.recent <- read.csv("clim_recent.csv", header=T)
+
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  left_join(clim.norms,
+            by="PLT_CN") %>%
+  left_join(clim.remper,
+            by="PLT_CN") %>%
+  left_join(clim.base,
+            by="PLT_CN") %>%
+  left_join(clim.recent,
+            by="PLT_CN") %>% 
+  mutate(REMPER_END = MEASYEAR,
+         REMPER_START = MEASYEAR-round(REMPER,digits=0),
+         REMPER_PER = length(REMPER_START:REMPER_END))
+         
+```
+
+
+#### (misc spatial)
+
+```{r spatial.data, echo=T}
+
+old.proj <- '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+
+base.proj <- "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
+
+
+
+
+
+
+
+states <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/state_boundaries",
+                  layer = "state_boundaries", verbose=F) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+cont <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/continents",
+                  layer = "na",
+                verbose=F,
+                p4s = old.proj) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+range <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/named_ranges",
+                 layer = "abielasi",
+                 verbose = F,
+                 p4s = old.proj) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+abla.sp <- abla.plots %>% 
+  SpatialPointsDataFrame(coords = .[,c("LON","LAT")],
+                         data = .,
+                         proj4string = CRS(old.proj)) %>% 
+    spTransform(.,
+              CRSobj = CRS(base.proj))
+
+er4 <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/cleland_usfs_ecoregions",
+               layer = "S_USA.EcomapSubsections",
+               verbose=F) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+er3 <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/cleland_usfs_ecoregions",
+               layer = "S_USA.EcomapSections",
+               verbose=F) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+er2 <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/cleland_usfs_ecoregions",
+               layer = "S_USA.EcoMapProvinces",
+               verbose=F) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+er4.abla <- er4[abla.sp,]
+er3.abla <- er3[abla.sp,]
+er2.abla <- er2[abla.sp,]
+
+```
+
+

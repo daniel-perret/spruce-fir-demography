@@ -1,0 +1,329 @@
+---
+title: "Untitled"
+author: "D Perret"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      prompt = FALSE,
+                      error = TRUE,
+                      message = FALSE,
+                      cache = FALSE,
+                      cache.lazy = FALSE,
+                      eval = TRUE,
+                      eval.after = "fig.cap")
+
+library(tidyverse)
+library(rFIA)
+library(ggplot2)
+library(ggExtra)
+library(rgdal)
+library(sp)
+library(ggsci)
+library(raster)
+library(splines)
+library(lme4)
+library(patchwork)
+library(performance)
+library(ggeffects)
+select <- dplyr::select
+
+# setting my preferred ggplot2 theme
+theme_set(theme_bw())
+theme_update(text = element_text(size=16, color = "black"),
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             strip.background = element_blank(),
+             panel.border=element_rect(size=1.5))
+
+# colors to be used in all map figures
+mapcolor <- "wheat3"
+linecolor <- "gray40"
+regioncolors <- c("Cascade Mixed Forest" = "#009E73",
+                  "Northern Rocky Mountain Forest-Steppe" = "#56B4E9",
+                  "Middle Rocky Mountain Steppe" = "#E69F00",
+                  "Southern Rocky Mountain Steppe" = "#CC79A7",
+                  "zIntermountain Semi-Desert" = "gray20",
+                  "AZ-NM Mountains" = "#D55E00")
+
+# sourcing estimation base code
+source("/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/status_trends/growMort_rewrite_METRIC.R")
+
+```
+
+PAIRED DOC WITH 'ABLAPIEN_MORTALITY.RMD'
+
+Here I'm going to build a model that quantifies the effects of climate and disturbance prevalence on probability of seedling presence; modeled after Davis et al 2023.
+
+
+Pulling seedling data
+```{r}
+
+# making a dataframe of plot-level presence/absence for seedlings of each species on plots that have co-occurring adults
+seed <- data.frame(PLT_CN = rep(co.pres.plots,each=2),
+                   SPCD = c(19,93)) %>% 
+  left_join(all.fia$SEEDLING %>% 
+              filter(SPCD %in% c(19,93),
+                     PLT_CN %in% co.pres.plots,
+                     INVYR > 2009) %>% 
+              select(PLT_CN,
+                     SPCD,
+                     CONDID,
+                     TREECOUNT),
+            by=c("PLT_CN","SPCD")) %>% 
+  group_by(PLT_CN,SPCD) %>% 
+  summarise(SEED.PRES = ifelse(sum(TREECOUNT > 0, na.rm=T), 1, 0)) %>% 
+  ungroup()
+
+# pulling conditions that contain microplots
+micr.cond <- all.fia$COND %>% 
+  filter(PLT_CN %in% co.pres.plots,
+         INVYR>2009) %>% 
+  summarise(fire = ifelse(DSTRBCD1 %in% 30:32 |
+                            DSTRBCD2 %in% 30:32 |
+                            DSTRBCD3 %in% 30:32, 
+                          "burned", "unburned"),
+            bda = ifelse(DSTRBCD1 %in% c(10:12,20:22) | 
+                           DSTRBCD2 %in% c(10:12,20:22) | 
+                           DSTRBCD3 %in% c(10:12,20:22),
+                         "bda", "no.bda"),
+            fire.year = case_when(DSTRBCD1 %in% 30:32 ~ DSTRBYR1,
+                                  DSTRBCD2 %in% 30:32 ~ DSTRBYR2,
+                                  DSTRBCD3 %in% 30:32 ~ DSTRBYR3),
+            bda.year = case_when(DSTRBCD1 %in% c(10:12,20:22) ~ DSTRBYR1,
+                                 DSTRBCD2 %in% c(10:12,20:22) ~ DSTRBYR2,
+                                 DSTRBCD3 %in% c(10:12,20:22) ~ DSTRBYR3),
+            disturbance = case_when(fire == "burned" & bda == "bda" ~ "fire/bda",
+                                    fire == "burned" & bda == "no.bda" ~ "fire",
+                                    fire == "unburned" & bda == "bda" ~ "bda",
+                                    fire == "unburned" & bda == "no.bda" ~"undisturbed"),
+            CONDID = CONDID,
+            PLT_CN = PLT_CN,
+            SLOPE = SLOPE,
+            ASPECT = ASPECT,
+            MICRPROP_UNADJ = MICRPROP_UNADJ) %>% 
+  filter(MICRPROP_UNADJ>0) %>% 
+  group_by(PLT_CN) %>% 
+  filter(MICRPROP_UNADJ == max(MICRPROP_UNADJ)) %>% 
+  filter(case_when(n()>1 ~ CONDID == min(CONDID),
+                   n()==1 ~ !is.na(MICRPROP_UNADJ))) %>%
+  ungroup()
+
+# attempting a disturbance severity proxy
+dist.sev <- ind.mort.dat %>% 
+  mutate(MORT = STATUSCD-PREV_STATUS_CD) %>%
+  group_by(PLT_CN,SPCD) %>% 
+  summarise(mort.prop = sum(MORT)/n(),
+            fire.sev = sum(MORT*ifelse(agent_key=="fire",1,0),na.rm=T)/n(),
+            bda.sev = sum(MORT*ifelse(agent_key%in%c("disease","insect"),1,0),na.rm=T)/n(),
+            dist.sev = sum(MORT*ifelse(agent_key%in%c("fire","disease","insect"),1,0),na.rm=T)/n())
+
+
+
+# dataframe of plot-level presence/absence of seedlings, with condition-level disturbance information and plot-level climate information and ecoregion-level disturbance and population information
+seed.dat <- seed %>% 
+  left_join(.,
+            all.fia$PLOT %>% 
+              select(PLT_CN,
+                     contains("MAT"),
+                     contains("MAP"),
+                     contains("CMD"),
+                     ECOSUBCD, REMPER, ECO_GRP_NEW_NAM,
+                     INVYR, ELEV, most.recent) %>% 
+              mutate(MAT_anom = MAT_remper-MAT_base,
+                     MAP_anom = MAP_remper-MAP_base,
+                     CMD_anom = CMD_remper-CMD_base,
+                     MAP_relanom = MAP_anom/MAP_base),
+            by="PLT_CN") %>% 
+  left_join(micr.cond,
+            by=c("PLT_CN")) %>% 
+  left_join(mort.area.er %>% 
+              mutate(area.fire.prop = area.fire/area.total,
+                     area.id.prop = area.id/area.total),
+            by="ECOSUBCD") %>% 
+  left_join(plot.attributes.prev, by = "PLT_CN") %>% 
+  mutate(SPCD = factor(SPCD),
+         yr.since.fire = ifelse(fire == "burned",
+                                INVYR-fire.year,
+                                NA),
+         yr.since.dist = case_when(disturbance == "fire" ~ INVYR - fire.year,
+                                   disturbance == "fire/bda" ~ INVYR - fire.year,
+                                   disturbance == "bda" ~ INVYR - bda.year,
+                                   bda.year == 9999 ~ INVYR - INVYR),
+         yr.since.fire = ifelse(is.na(yr.since.fire),
+                                100, yr.since.fire),
+         yr.since.dist = ifelse(is.na(yr.since.dist),
+                                100, yr.since.dist)) %>% 
+  left_join(dist.sev,
+            by=c("PLT_CN","SPCD"))
+```
+
+Trying a quick model?
+
+```{r}
+
+m.s <- glmer(data = seed.dat,
+             formula = SEED.PRES~
+               SPCD*scale(MAT_anom)*scale(MAP_relanom)*scale(MAT_base)*scale(MAP_base) +
+               SPCD*scale(MAT_anom)*dist.sev+
+               
+               #disturbance
+               (1|ECOSUBCD),
+             family = binomial(link="logit"),
+             nAGQ=0,
+             control = glmerControl(optim = "nlminbwrap"))
+
+
+summary(m.s)
+performance(m.s)
+```
+
+```{r}
+
+ggpredict(m.s,
+          terms = c("MAT_anom [0:3,by=0.1]",
+                    "SPCD",
+                    "area.fire.prop[0,0.07,0.2]",
+                    "area.id.prop[0,0.4,0.65]")) %>% 
+  as.data.frame() %>% 
+  rename(MAT_anom = x,
+         SPCD = group,
+         area.fire = facet,
+         area.id = panel) %>% 
+  ggplot(.,
+         aes(x = MAT_anom,
+             y = predicted,
+             fill = SPCD,
+             col = SPCD)) + 
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              alpha = 0.1, col=NA) +
+  geom_line(lwd=1.7) + 
+  facet_grid(facets = ~area.id~area.fire,
+             labeller = labeller(
+               area.fire = as_labeller(
+                 c("0" = "0% burned",
+                   "0.07"= "Current conditions \n 7% burned",
+                   "0.2" = "20% burned")),
+               area.id = as_labeller(
+                 c("0" = "0% bda",
+                   "0.4"= "Current conditions \n 40% bda",
+                   "0.65" = "65% bda"))))
+
+
+ggpredict(m.s,
+          terms = c("MAT_anom [0:3,by=0.1]",
+                    "MAT_base [0,2,5]",
+                    "SPCD")) %>% 
+  as.data.frame() %>% 
+  rename(MAT_anom = x,
+         MAT_base = group,
+         SPCD = facet) %>% 
+  ggplot(.,
+         aes(x = MAT_anom,
+             y = predicted,
+             fill = MAT_base,
+             col = MAT_base)) + 
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              alpha = 0.1, col=NA) +
+  geom_line(lwd=1.7) + 
+  scale_color_manual(values=c("0" = "dodgerblue2",
+                              "2" = "green3",
+                              "5"= "firebrick2"),
+                     aesthetics=c("col","fill"))+
+  facet_grid(facets = ~SPCD,
+             labeller = labeller(c("19" = "Subalpine fir",
+                                   "93" = "Engelmann spruce")))
+
+
+ggpredict(m.s,
+          terms = c("dist.sev [0:1,by=0.01]",
+                    "SPCD",
+                    "MAT_anom [0,1,2]")) %>% 
+  as.data.frame() %>% 
+  rename(dist.sev = x,
+         SPCD = group,
+         MAT_anom = facet) %>% 
+  ggplot(aes(x = dist.sev,
+             y = predicted,
+             fill = MAT_anom,
+             col = MAT_anom)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              alpha = 0.1, col=NA) +
+  geom_line(lwd=1.7) + 
+  scale_color_manual(values=c("0" = "dodgerblue2",
+                              "1" = "gold3",
+                              "2"= "firebrick2"),
+                     aesthetics=c("col","fill"))+
+  facet_grid(facets = ~SPCD,
+             labeller = labeller(c("19" = "Subalpine fir",
+                                   "93" = "Engelmann spruce")))
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

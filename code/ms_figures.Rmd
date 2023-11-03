@@ -1,0 +1,1675 @@
+---
+title: "Untitled"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+SUBALPINE FIR STATUS AND TRENDS
+MANUSCRIPT FIGURES
+
+<< get set up and data code from `status_trends_summarydraft.Rmd` >>
+
+
+
+# FIGURE 1
+
+The idea here is for a composite figure with a distribution map, climate space figure, and size/livedead distributions for the whole species. Points and size distributions will be colored by LVLII (?) ecoregions... so maybe there's 4-6 of them. The idea will be to give a broad overview of distribution, population sizes, live vs dead, etc.
+
+```{r}
+## making ecological province-ish groupings
+
+PLOT.sp <- all.fia$PLOT %>% 
+  filter(!is.na(LON)) %>% 
+  SpatialPointsDataFrame(coords= .[,c("LON","LAT")],
+                         data = .,
+                         proj4string = CRS(old.proj)) %>% 
+  spTransform(.,CRSobj=CRS(base.proj)) %>% 
+  as(.,"sf") %>% 
+  sf::st_join(., er2 %>% 
+                as(.,"sf") %>% 
+                select(ECOPROVCD=MAP_UNIT_S,
+                       ECOPROVNAM=MAP_UNIT_N),
+              left=T) %>% 
+  mutate(ECO_GRP_NEW = case_when(ECOPROVCD %in% c("242","M242") ~ "M242",
+                                 ECOPROVCD %in% c("341", "M341","342") ~ "M341",
+                                 ECOPROVCD %in% c("331", "M331") ~ "M331",
+                                 ECOPROVCD %in% c("313", "M313", "321") ~ "M313",
+                                 is.na(ECOPROVCD) ~ "M333",
+                                 TRUE~ECOPROVCD),
+         ECO_GRP_NEW_NAM = case_when(ECO_GRP_NEW == "M242" ~ "Cascade Mixed Forest",
+                                     ECO_GRP_NEW == "M313" ~ "AZ-NM Mountains",
+                                     ECO_GRP_NEW == "M331" ~ "Southern Rocky Mountain Steppe",
+                                     ECO_GRP_NEW == "M332" ~ "Middle Rocky Mountain Steppe",
+                                     ECO_GRP_NEW == "M333" ~ "Northern Rocky Mountain Forest-Steppe",
+                                     ECO_GRP_NEW == "M341" ~ "zIntermountain Semi-Desert",
+                                     TRUE ~ "Cascade Mixed Forest"))
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  left_join(., PLOT.sp %>% 
+              sf::st_drop_geometry() %>% 
+              select(PLT_CN, ECOPROVCD,ECOPROVNAM, ECO_GRP_NEW, ECO_GRP_NEW_NAM),
+            by="PLT_CN")
+```
+
+Map figure
+```{r}
+mapcolor <- "wheat3"
+linecolor <- "gray40"
+regioncolors <- c("Cascade Mixed Forest" = "#009E73",
+                  "Northern Rocky Mountain Forest-Steppe" = "#56B4E9",
+                  "Middle Rocky Mountain Steppe" = "#E69F00",
+                  "Southern Rocky Mountain Steppe" = "#CC79A7",
+                  "zIntermountain Semi-Desert" = "gray20",
+                  "AZ-NM Mountains" = "#D55E00")
+
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  geom_sf(data = PLOT.sp %>% 
+            filter(abla.pres==1),
+          #!ECOPROVCD%in%c("M331")),
+          aes(bg = ECO_GRP_NEW_NAM),
+          pch=21,
+          col="black",
+          alpha=0.6, size = 3.5)+
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  # scale_color_manual(name = "Ecological Province",aesthetics = "bg",
+  #                    values = c("Cascade Mixed Forest" = "forestgreen",
+  #                               "Northern Rocky Mountain Forest-Steppe" = "dodgerblue3",
+  #                               "Middle Rocky Mountain Steppe" = "gold3",
+  #                               "Southern Rocky Mountain Steppe" = "seagreen3",
+  #                               "zIntermountain Semi-Desert" = "firebrick2",
+  #                               "AZ-NM Mountains" = "gray20")) +
+  scale_color_manual(name = "Ecological Province",aesthetics = c("bg"),
+                     values = regioncolors) +
+  theme(legend.position = "none")
+```
+
+climate space figure
+```{r}
+
+mapcolor <- "wheat3"
+linecolor <- "gray40"
+regioncolors <- c("Cascade Mixed Forest" = "#009E73",
+                  "Northern Rocky Mountain Forest-Steppe" = "#56B4E9",
+                  "Middle Rocky Mountain Steppe" = "#E69F00",
+                  "Southern Rocky Mountain Steppe" = "#CC79A7",
+                  "zIntermountain Semi-Desert" = "gray20",
+                  "AZ-NM Mountains" = "#D55E00")
+
+
+all.fia$PLOT %>% 
+  filter(abla.pres==1) %>% 
+  arrange(ECO_GRP_NEW_NAM) %>% 
+  ggplot(.,
+         aes(x = MAT_remper,
+             y = MAP_remper)) +
+  geom_point(pch=21,
+             aes(bg = ECO_GRP_NEW_NAM),
+             col="black",
+             size=3,
+             alpha=0.6)+
+  # scale_color_manual(name = "Ecological Province",aesthetics = "bg",
+  #                    values = c("Cascade Mixed Forest" = "forestgreen",
+  #                               "Northern Rocky Mountain Forest-Steppe" = "dodgerblue3",
+  #                               "Middle Rocky Mountain Steppe" = "gold3",
+  #                               "Southern Rocky Mountain Steppe" = "seagreen3",
+  #                               "zIntermountain Semi-Desert" = "firebrick2",
+  #                               "AZ-NM Mountains" = "gray20")) +
+  scale_color_manual(name = "Ecological Province",aesthetics = "bg",
+                     values = regioncolors) +
+  labs(x = "Mean annual temperature",
+       y = "Mean annual precipitation")
+
+
+all.fia$PLOT %>%
+  #as(.,"Spatial") %>% 
+  filter(abla.pres==1,
+         !is.na(MAT_remper),
+         !is.na(ECO_GRP_NEW_NAM)) %>% 
+  group_by(ECO_GRP_NEW_NAM) %>% 
+  slice(chull(x = MAT_remper,
+              y = MAP_remper)) %>% 
+  ggplot(aes(x = MAT_remper,
+             y = MAP_remper)) +
+  geom_polygon(aes(group = ECO_GRP_NEW_NAM,
+                   fill = ECO_GRP_NEW_NAM,
+                   col = ECO_GRP_NEW_NAM),
+               alpha=0.4,
+               lwd=1.3) +
+  scale_color_manual(name = "Ecological Province",aesthetics = c("fill","col"),
+                     values = regioncolors) +
+  labs(x = "Mean annual temperature",
+       y = "Mean annual precipitation") +
+  theme(legend.position = "none")
+
+
+```
+
+Size distributions
+```{r}
+
+
+all.fia$TREE$newSize <- makeClasses(all.fia$TREE$DIA, interval = 5, numLabs=FALSE, lower = 5, upper = 150)
+
+tpasize.all <-  all.fia %>% 
+  clipFIA(.,
+          mostRecent=T) %>% 
+  tpa(.,
+      grpBy = c(ECO_GRP_NEW_NAM,
+                STATUSCD,newSize),
+      treeDomain = SPCD==19,
+      #bySizeClass=TRUE,
+      totals = TRUE,
+      treeType = "all",
+      variance = T) %>% 
+  mutate(TREE_TOTAL_SD = sqrt(TREE_TOTAL_VAR),
+         status = ifelse(STATUSCD==1,"alive","dead"))
+
+#sizeClassCm = (sizeClass*2)*2.54)
+
+tpasize.all %>%
+  mutate(newSize = ifelse(newSize == "[5,10)","[05,10)",newSize)) %>% 
+  #filter(ECO_GRP_NEW_NAM == "Cascade Mixed Forest") %>% 
+  ggplot(.,
+         aes(x = newSize,# reorder(newSize,c(1:8,1:8,9)),
+             y = TREE_TOTAL/1000000,
+             group = status,
+             fill = ECO_GRP_NEW_NAM)) +
+  geom_col(position=position_dodge(0.9),
+           col="black",
+           aes(alpha=status)) +
+  geom_errorbar(aes(ymin = (TREE_TOTAL - (TREE_TOTAL_SD*1.96))/1000000,
+                    ymax = (TREE_TOTAL + (TREE_TOTAL_SD*1.96))/1000000),
+                position=position_dodge(0.9),
+                width=0.3,
+                lwd=0.9)+
+  labs(x = "Size class (in)",
+       y = "Number of trees") +
+  theme(axis.text.x = element_text(angle=45,hjust=1,size=15),
+        #axis.text.y = element_text(size=20),
+        legend.key.size = unit(1,"cm"),
+        strip.text.x=element_blank()) +
+  scale_y_continuous(labels = scales::comma,
+                     name = "Number of trees") +
+  scale_alpha_manual(values = c("alive" = 1,
+                                "dead" = 0.3)) +
+  scale_fill_manual(name = "Ecological Province",aesthetics = "bg",
+                     values = regioncolors) +
+  facet_wrap(facets=~ECO_GRP_NEW_NAM, scales="free_y",nrow = 3)+
+  theme(legend.position="none")
+
+
+
+```
+
+
+
+# FIGURE 2 
+
+I think that this figure will just be a big old population trends map...
+
+Here's all the change compilation code
+```{r}
+
+evals <- c(21903,41903,61903,81903,161903,301903,321903,351903,411903,491903,531903,561903)
+
+thresh <- 5
+
+## TPA change estimates for all species and all ecoregions
+
+## need to think through whether lumping non-abla species before or after estimation makes more sense from an uncertainty standpoint
+
+#total tpa change for all species 
+dtpa.er.sp <- all.fia %>% 
+  growMort_dlp(db = .,
+               stateVar = "TPA",
+               polys = er4.abla %>%
+                 sf::st_as_sf() %>%
+                 select(MAP_UNIT_S),
+               #treeDomain = SPCD==19,
+               areaDomain = abla.pres == 1,
+               grpBy = SPCD,
+               totals = TRUE,
+               #byPlot = TRUE,
+               returnSpatial = T, 
+               nCores = 4,
+               variance = T,
+               sizeThresh=thresh,
+               evals = evals,
+               method="TI") %>% 
+  group_by(MAP_UNIT_S) %>% 
+  filter(YEAR==max(YEAR))
+
+#total baa change for all species
+dbaa.er.sp <- all.fia %>% 
+  growMort_dlp(db = .,
+               stateVar = "BAA",
+               polys = er4.abla %>%
+                 sf::st_as_sf() %>% 
+                 select(MAP_UNIT_S),
+               #treeDomain = SPCD==19,
+               areaDomain = abla.pres == 1,
+               grpBy = SPCD,
+               totals = TRUE,
+               #byPlot = TRUE,
+               returnSpatial = F, 
+               nCores = 4,
+               variance = T,
+               sizeThresh=thresh,
+               evals = evals,
+               method="TI") %>% 
+  group_by(MAP_UNIT_S) %>% 
+  filter(YEAR==max(YEAR))
+
+#combining TPA and BAA change estimates
+dall.er.sp <- left_join(dtpa.er.sp, dbaa.er.sp,
+                        suffix = c(".tpa",".baa"),
+                        by=c("MAP_UNIT_S","polyID","SPCD","YEAR","N","nPlots_TREE","nPlots_AREA","AREA_TOTAL"))
+
+# total agent-specific mortality for all species
+dtpa.er.sp.agent <- all.fia %>% 
+  growMort_dlp(db = .,
+               stateVar = "TPA",
+               polys = er4.abla %>%
+                 sf::st_as_sf() %>% 
+                 select(MAP_UNIT_S),
+               #treeDomain = SPCD==19,
+               #areaDomain = abla.pres == 1,
+               totals = TRUE,
+               grpBy = c(SPCD, agent_key),
+               #byPlot = TRUE,
+               returnSpatial = T, 
+               nCores = 4,
+               variance = T,
+               sizeThresh = thresh,
+               evals = evals,
+               method="TI") %>% 
+  group_by(MAP_UNIT_S) %>% 
+  filter(YEAR==max(YEAR))
+
+# summarising mortality and estimating recruitment
+mort.decomp.sp <- 
+  dtpa.er.sp %>% 
+  left_join(dtpa.er.sp.agent %>%
+              sf::st_drop_geometry() %>% 
+              group_by(MAP_UNIT_S,SPCD) %>% 
+              summarise(TOT_MORT = sum(CURR_TOTAL-PREV_TOTAL,na.rm=T)*-1,
+                        FIRE_MORT = sum((CURR_TOTAL-PREV_TOTAL)*ifelse(agent_key=="fire",1,0),na.rm=T)*-1,
+                        DISEASE_MORT = sum((CURR_TOTAL-PREV_TOTAL)*ifelse(agent_key=="disease",1,0),na.rm=T)*-1,
+                        INSECT_MORT = sum((CURR_TOTAL-PREV_TOTAL)*ifelse(agent_key=="insect",1,0),na.rm=T)*-1,
+                        ID_MORT = sum((CURR_TOTAL-PREV_TOTAL)*ifelse(agent_key%in%c("insect","disease"),1,0),na.rm=T)*-1),
+            by=c("MAP_UNIT_S","SPCD")) %>%
+  # mutate(TOT_MORT = ifelse(is.na(TOT_MORT),0,TOT_MORT),
+  #        FIRE_MORT = ifelse(is.na(FIRE_MORT),0,FIRE_MORT),
+  #        INSECT_MORT = ifelse(is.na(INSECT_MORT),0,INSECT_MORT),
+  #        DISEASE_MORT = ifelse(is.na(DISEASE_MORT),0,DISEASE_MORT),
+  #        ID_MORT = ifelse(is.na(ID_MORT),0,ID_MORT),
+  #        CHNG_TPA_TOT = (CURR_TOTAL-PREV_TOTAL)/AREA_TOTAL,
+  #        CHNG_PERC_tot = (CURR_TOTAL-PREV_TOTAL)/PREV_TOTAL,
+  #        RECR_est = (CURR_TOTAL-PREV_TOTAL) + TOT_MORT,
+  #        fire.pace = ifelse(FIRE_MORT>RECR_est, "no", "yes"),
+  #        id.pace = ifelse(ID_MORT > RECR_est, "no", "yes"),
+  #        other.pace = ifelse(TOT_MORT-(FIRE_MORT+ID_MORT) > RECR_est, "no", "yes"),
+#        all.pace = ifelse(TOT_MORT > RECR_est, "no","yes"),
+#        minus.fire = ifelse(TOT_MORT-FIRE_MORT > RECR_est, "no", "yes"),
+#        minus.id = ifelse(TOT_MORT - ID_MORT > RECR_est, "no", "yes")) %>% 
+mutate(MORT_TOTAL = ifelse(is.na(MORT_TOTAL),0,MORT_TOTAL),
+       FIRE_MORT = ifelse(is.na(FIRE_MORT),0,FIRE_MORT),
+       INSECT_MORT = ifelse(is.na(INSECT_MORT),0,INSECT_MORT),
+       DISEASE_MORT = ifelse(is.na(DISEASE_MORT),0,DISEASE_MORT),
+       ID_MORT = ifelse(is.na(ID_MORT),0,ID_MORT),
+       CHNG_TPA_TOT = (CURR_TOTAL-PREV_TOTAL)/AREA_TOTAL,
+       CHNG_PERC_tot = (CURR_TOTAL-PREV_TOTAL)/PREV_TOTAL,
+       RECR_est = (CURR_TOTAL-PREV_TOTAL) + MORT_TOTAL,
+       fire.pace = ifelse(FIRE_MORT>RECR_est, "no", "yes"),
+       id.pace = ifelse(ID_MORT > RECR_est, "no", "yes"),
+       other.pace = ifelse(MORT_TOTAL-(FIRE_MORT+ID_MORT) > RECR_est, "no", "yes"),
+       all.pace = ifelse(MORT_TOTAL > RECR_est, "no","yes"),
+       minus.fire = ifelse(MORT_TOTAL-FIRE_MORT > RECR_est, "no", "yes"),
+       minus.id = ifelse(MORT_TOTAL - ID_MORT > RECR_est, "no", "yes")) %>% 
+  left_join(all.fia$PLOT %>% 
+              filter(most.recent=="yes",
+                     !is.na(REMPER)) %>% 
+              select(PLT_CN,ECOSUBCD,MEASYEAR,REMPER) %>% 
+              mutate(REMPER=round(REMPER,0)) %>% 
+              group_by(ECOSUBCD) %>% 
+              summarise(minT1yr = min(MEASYEAR-REMPER),
+                        maxT1yr = max(MEASYEAR-REMPER),
+                        minT2yr = min(MEASYEAR),
+                        maxT2yr = max(MEASYEAR)),
+            by=c("MAP_UNIT_S"="ECOSUBCD"))
+
+# filtering for abla
+mort.decomp.abla <- mort.decomp.sp %>% 
+  filter(SPCD==19,
+         CURR_TOTAL>0 | PREV_TOTAL>0)
+
+# summarising for abla-specific rates
+
+dall.er.abla <- dall.er.sp %>% 
+  mutate(sp.indicator = ifelse(SPCD==19, 1, 0)) %>% 
+  group_by(MAP_UNIT_S) %>%
+  summarise(CURR_BAA.abla = sum(CURR_TOTAL.baa*sp.indicator),
+            PREV_BAA.abla = sum(PREV_TOTAL.baa*sp.indicator),
+            CURR_BAA.all = sum(CURR_TOTAL.baa),
+            PREV_BAA.all = sum(PREV_TOTAL.baa),
+            
+            CURR_TPA.abla = sum(CURR_TOTAL.tpa*sp.indicator),
+            CURR_TPA.abla.var = sum(CURR_TOTAL_VAR.tpa*sp.indicator),
+            
+            PREV_TPA.abla = sum(PREV_TOTAL.tpa*sp.indicator),
+            PREV_TPA.abla.var = sum(PREV_TOTAL_VAR.tpa*sp.indicator),
+            
+            CHNG_TOTAL.tpa.abla = sum(CHNG_TOTAL.tpa*sp.indicator,na.rm=T),
+            CHNG_TOTAL.tpa.abla.var = sum(CHNG_TOTAL_VAR.tpa*sp.indicator,na.rm=T),
+            CHNG_PERC.tpa.abla = sum(CHNG_PERC.tpa*sp.indicator,na.rm=T),
+            CHNG_PERC.tpa.abla.var = sum(CHNG_PERC_VAR.tpa*sp.indicator,na.rm=T),
+            
+            CHNG_TOTAL.baa.abla = sum(CHNG_TOTAL.baa*sp.indicator,na.rm=T),
+            CHNG_TOTAL.baa.abla.var = sum(CHNG_TOTAL_VAR.baa*sp.indicator,na.rm=T),
+            CHNG_PERC.baa.abla = sum(CHNG_PERC.baa*sp.indicator,na.rm=T),
+            CHNG_PERC.baa.abla.var = sum(CHNG_PERC_VAR.baa*sp.indicator,na.rm=T),
+            
+            CURR_TPA.all = sum(CURR_TOTAL.tpa),
+            PREV_TPA.all = sum(PREV_TOTAL.tpa),
+            AREA = mean(AREA_TOTAL))%>% 
+  mutate(CURR_BAA.prop = CURR_BAA.abla/CURR_BAA.all,
+         CURR_TPA.prop = CURR_TPA.abla/CURR_TPA.all,
+         PREV_BAA.prop = PREV_BAA.abla/PREV_BAA.all,
+         PREV_TPA.prop = PREV_TPA.abla/PREV_TPA.all,
+         BAA_CHNG_PERC = (CURR_BAA.abla-PREV_BAA.abla)/PREV_BAA.abla,
+         TPA_CHNG_PERC = (CURR_TPA.abla-PREV_TPA.abla)/PREV_TPA.abla,
+         
+         CHNG_PERC.tpa.abla.sd = sqrt(CHNG_PERC.tpa.abla.var),
+         
+         BAA_CHNG_PERC.nonabla = ((CURR_BAA.all-CURR_BAA.abla)-(PREV_BAA.all-PREV_BAA.abla))/(PREV_BAA.all-PREV_BAA.abla),
+         TPA_CHNG_PERC.nonabla = ((CURR_TPA.all-CURR_TPA.abla)-(PREV_TPA.all-PREV_TPA.abla))/(PREV_TPA.all-PREV_TPA.abla),
+         BAA_CHNG_PERC.all = (CURR_BAA.all-PREV_BAA.all)/PREV_BAA.all,
+         TPA_CHNG_PERC.all = (CURR_TPA.all-PREV_TPA.all)/PREV_TPA.all,
+         quadrant.baa = case_when(BAA_CHNG_PERC < 0 & BAA_CHNG_PERC.nonabla < 0 ~ 1,
+                                  BAA_CHNG_PERC < 0 & BAA_CHNG_PERC.nonabla >= 0 ~ 2,
+                                  BAA_CHNG_PERC >= 0 & BAA_CHNG_PERC.nonabla >= 0 ~ 3,
+                                  BAA_CHNG_PERC >= 0 & BAA_CHNG_PERC.nonabla < 0 ~ 4),
+         quadrant.tpa = case_when(TPA_CHNG_PERC < 0 & TPA_CHNG_PERC.nonabla < 0 ~ 1,
+                                  TPA_CHNG_PERC < 0 & TPA_CHNG_PERC.nonabla >= 0 ~ 2,
+                                  TPA_CHNG_PERC >= 0 & TPA_CHNG_PERC.nonabla >= 0 ~ 3,
+                                  TPA_CHNG_PERC >= 0 & TPA_CHNG_PERC.nonabla < 0 ~ 4)) %>% 
+  filter(PREV_TPA.abla > 0 | CURR_TPA.abla > 0) %>% 
+  left_join(mort.decomp.abla %>% sf::st_drop_geometry())
+
+
+
+## joining province groupings
+dall.er.abla <- dall.er.abla %>% 
+  sf::st_join(., er2 %>% 
+                as(.,"sf") %>% 
+                select(ECOPROVCD=MAP_UNIT_S,
+                       ECOPROVNAM=MAP_UNIT_N),
+              left=T,
+              join = sf::st_covered_by) %>% 
+  mutate(ECO_GRP_NEW = case_when(ECOPROVCD %in% c("242","M242","M261","M342") ~ "M242",
+                                 ECOPROVCD %in% c("341", "M341","342") ~ "M341",
+                                 ECOPROVCD %in% c("M331") ~ "M331",
+                                 ECOPROVCD %in% c("313", "M313", "321") ~ "M313",
+                                 is.na(ECOPROVCD) ~ "M333",
+                                 TRUE~ECOPROVCD),
+         ECO_GRP_NEW_NAM = case_when(ECO_GRP_NEW == "M242" ~ "Cascade Mixed Forest",
+                                     ECO_GRP_NEW == "M313" ~ "AZ-NM Mountains",
+                                     ECO_GRP_NEW == "M331" ~ "Southern Rocky Mountain Steppe",
+                                     ECO_GRP_NEW == "M332" ~ "Middle Rocky Mountain Steppe",
+                                     ECO_GRP_NEW == "M333" ~ "Northern Rocky Mountain Forest-Steppe",
+                                     ECO_GRP_NEW == "M341" ~ "zIntermountain Semi-Desert"))
+
+
+```
+
+##CHANGE MAP
+
+```{r}
+mapcolor <- "wheat3"
+linecolor <- "gray40"
+regioncolors <- c("Cascade Mixed Forest" = "#009E73",
+                  "Northern Rocky Mountain Forest-Steppe" = "#56B4E9",
+                  "Middle Rocky Mountain Steppe" = "#E69F00",
+                  "Southern Rocky Mountain Steppe" = "#CC79A7",
+                  "zIntermountain Semi-Desert" = "gray20",
+                  "AZ-NM Mountains" = "#D55E00")
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  # geom_sf(data = er4.abla %>% sf::st_as_sf(),
+  #         fill="darkgray",
+  #         col="darkgray") +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=linecolor) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=NA,
+          aes(fill = CHNG_PERC.tpa.abla)) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  scale_fill_steps2(name = "ABLA % change \n(abundance)",
+                    #na.value="darkgray",
+                    na.value=NA,
+                    low = "firebrick3",
+                    mid="white",
+                    midpoint=0,
+                    high = "darkblue",
+                    limits = c(-100,100),
+                    n.breaks = 9)+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  theme(legend.key.size = unit(2,"cm"),
+        legend.position="none")
+
+```
+
+##Basal area
+```{r}
+mapcolor <- "wheat3"
+linecolor <- "gray40"
+regioncolors <- c("Cascade Mixed Forest" = "#009E73",
+                  "Northern Rocky Mountain Forest-Steppe" = "#56B4E9",
+                  "Middle Rocky Mountain Steppe" = "#E69F00",
+                  "Southern Rocky Mountain Steppe" = "#CC79A7",
+                  "zIntermountain Semi-Desert" = "gray20",
+                  "AZ-NM Mountains" = "#D55E00")
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  # geom_sf(data = er4.abla %>% sf::st_as_sf(),
+  #         fill="darkgray",
+  #         col="darkgray") +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=linecolor) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=NA,
+          aes(fill = CHNG_PERC.baa.abla)) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  scale_fill_steps2(name = "ABLA % change \n(abundance)",
+                    #na.value="darkgray",
+                    na.value=NA,
+                    low = "firebrick3",
+                    mid="white",
+                    midpoint=0,
+                    high = "darkblue",
+                    limits = c(-100,100),
+                    n.breaks = 9)+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  theme(legend.key.size = unit(2,"cm"),
+        legend.position="none")
+
+```
+
+##W/ SIG SHADING
+```{r}
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  # geom_sf(data = er4.abla %>% sf::st_as_sf(),
+  #         fill="darkgray",
+  #         col="darkgray") +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=linecolor) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=NA,
+          aes(fill = CHNG_PERC.tpa.abla)) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9,
+                   abs(CHNG_PERC.tpa.abla)-(CHNG_PERC.tpa.abla.sd*1.96)<0),
+          col=NA,
+          fill = "gray20",
+          alpha=1)+
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  scale_fill_steps2(name = "ABLA % change \n(abundance)",
+                    #na.value="darkgray",
+                    na.value=NA,
+                    low = "firebrick3",
+                    mid="white",
+                    midpoint=0,
+                    high = "darkblue",
+                    limits = c(-100,100),
+                    n.breaks = 9)+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  theme(legend.key.size = unit(2,"cm"))
+
+```
+
+##NUMBER/PROPORTION  PLOTS IN ECOREGION
+
+```{r}
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  # geom_sf(data = er4.abla %>% sf::st_as_sf(),
+  #         fill="darkgray",
+  #         col="darkgray") +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=linecolor) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=NA,
+          aes(fill = nPlots_TREE/nPlots_AREA)) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  scale_fill_steps(name = "% plots with ABLA",
+                   #na.value="darkgray",
+                   na.value=NA,
+                   low = "white",
+                   high = "darkgreen",
+                   #breaks=c(0,0.25,0.5,0.75,1),
+                   n.breaks=5)+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  theme(legend.key.size = unit(2,"cm"))
+
+```
+
+##SAMPLING ERROR cv%
+......not sure why this is crummy!
+```{r}
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  # geom_sf(data = er4.abla %>% sf::st_as_sf(),
+  #         fill="darkgray",
+  #         col="darkgray") +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=linecolor) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(CHNG_PERC.tpa.abla),
+                   nPlots_AREA>9),
+          col=NA,
+          aes(fill = CHNG_PERC.tpa.abla.sd/abs(CHNG_PERC.tpa.abla))) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  scale_fill_steps(name = "CV?",
+                   #na.value="darkgray",
+                   na.value=NA,
+                   low = "white",
+                   high = "firebrick3",
+                   breaks=c(0,.25,.5,0.75,1),
+                   #n.breaks=5
+  )+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  theme(legend.key.size = unit(2,"cm"))
+
+```
+
+
+
+# Figure 3
+
+The idea here is a mortality map, paired with both total mortality contributions and size class (?) mortality by agent
+```{r}
+
+mapcolor <- "wheat3"
+linecolor <- "gray40"
+regioncolors <- c("Cascade Mixed Forest" = "#009E73",
+                  "Northern Rocky Mountain Forest-Steppe" = "#56B4E9",
+                  "Middle Rocky Mountain Steppe" = "#E69F00",
+                  "Southern Rocky Mountain Steppe" = "#CC79A7",
+                  "zIntermountain Semi-Desert" = "gray20",
+                  "AZ-NM Mountains" = "#D55E00")
+
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  # geom_sf(data = dall.er.abla %>% 
+  #           filter(!is.na(TPA_CHNG_PERC),
+  #                  nPlots_AREA>9) %>% 
+  #           sf::st_union(),
+  #         col="darkgray",
+  #         fill=NA) +  
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          #col=NA,
+          lwd=1,
+          aes(fill = ECO_GRP_NEW_NAM,
+              col=ECO_GRP_NEW_NAM
+          )
+  ) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          fill="white",
+          col=NA,
+          aes(alpha=-MORT_TOTAL/PREV_TOTAL)) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  # scale_color_manual(name = "Ecological Province",aesthetics = "bg",
+  #                    values = c("Cascade Mixed Forest" = "forestgreen",
+  #                               "Northern Rocky Mountain Forest-Steppe" = "dodgerblue3",
+  #                               "Middle Rocky Mountain Steppe" = "gold3",
+  #                               "Southern Rocky Mountain Steppe" = "seagreen3",
+  #                               "zIntermountain Semi-Desert" = "firebrick2",
+  #                               "AZ-NM Mountains" = "gray20")) +
+  scale_color_manual(name = "Ecological Province",aesthetics = c("fill","col"),
+                     values = regioncolors) +
+  scale_alpha_binned(name = "Net mortality",range = c(0.0,0.95),
+                     #breaks=c(0,-0.33,-0.66,-1),
+                     n.breaks=5
+  )+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  theme(legend.position="none")
+```
+
+
+```{r}
+
+# total agent-specific mortality for all species
+agents <- all.fia %>% 
+  growMort_dlp(db = .,
+               stateVar = "TPA",
+               treeDomain = SPCD==19,
+               totals = TRUE,
+               grpBy = c(ECO_GRP_NEW_NAM,agent_key),
+               returnSpatial = F, 
+               nCores = 4,
+               variance = T,
+               sizeThresh = 5,
+               evals = evals,
+               method="TI") %>% 
+  filter(agent_key!="unknown2") %>% 
+  mutate(PREV_TOTAL_SD = sqrt(PREV_TOTAL_VAR)) %>% 
+  mutate(agent_key = ifelse(agent_key=="unknown1","unknown",agent_key))
+
+agents %>% 
+  filter(YEAR==2019) %>% 
+  ggplot(.,
+         aes(x = reorder(agent_key,-PREV_TOTAL),
+             y = PREV_TOTAL/1000000)) +
+  geom_col(aes(fill=factor(ECO_GRP_NEW_NAM, levels=c("Cascade Mixed Forest",
+                                                     "Northern Rocky Mountain Forest-Steppe",
+                                                     "Middle Rocky Mountain Steppe",
+                                                     "Southern Rocky Mountain Steppe",
+                                                     "zIntermountain Semi-Desert",
+                                                     "AZ-NM Mountains")))) +
+  labs(x = "Mortality agent",
+       y = "Number of trees killed") +
+  theme(axis.text.x = element_text(angle=45,hjust=1, size=15)) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_color_manual(name = "Ecological Province",aesthetics = "fill",
+                     values = regioncolors)+
+  theme(legend.position="none")
+
+
+
+```
+
+Seedling code
+```{r}
+
+seed <- all.fia %>% 
+  seedling(.,
+           polys = er4.abla %>% 
+             sf::st_as_sf() %>% 
+             select(MAP_UNIT_S),
+           treeDomain = SPCD%in%c(19,18),
+           bySpecies = F,
+           totals = T,
+           returnSpatial = T) %>% 
+  filter(YEAR%in%c(2009,2010,2019))
+
+sapling <- all.fia %>% 
+  growMort_dlp(db = .,
+               stateVar = "TPA",
+               polys = er4.abla %>%
+                 sf::st_as_sf() %>%
+                 select(MAP_UNIT_S),
+               treeDomain = DIA<5,
+               grpBy=SPCD,
+               totals = TRUE,
+               nCores = 4,
+               variance = F,
+               sizeThresh=1,
+               evals = evals,
+               method="TI") %>%
+  filter(SPCD==19) %>% 
+  group_by(MAP_UNIT_S) %>% 
+  filter(YEAR==max(YEAR))  
+
+dall.er.abla <- dall.er.abla %>% 
+  left_join(., seed %>% 
+              sf::st_drop_geometry() %>%
+              select(YEAR, MAP_UNIT_S,
+                     SEED_TPA = TPA,
+                     SEED_TOTAL = TREE_TOTAL,
+                     SEED_SE = TREE_TOTAL_SE) %>% 
+              pivot_wider(.,
+                          names_from=YEAR,
+                          values_from=c(SEED_TPA,SEED_TOTAL,SEED_SE)),
+            by="MAP_UNIT_S") %>% 
+  left_join(., sapling %>% 
+              select(MAP_UNIT_S,
+                     #SAP_TPA = CURR_TPA,
+                     SAP_TOTAL = CURR_TOTAL,
+                     SAP_SE = CURR_TOTAL_SE))
+```
+
+Seed fig
+```{r}
+
+fit <- lm(data = dall.er.abla %>% 
+            mutate(x=MORT_TOTAL/PREV_TOTAL,
+                   weight=PREV_TOTAL/AREA_TOTAL,
+                   logy = log(SEED_TPA_2019+0.00001),
+                   y=SEED_TPA_2019),
+          formula = logy~x,
+          weights=weight)
+
+dall.er.abla %>% 
+  ggplot(.,
+         aes(x = (MORT_TOTAL/PREV_TOTAL)*100,
+             y = SEED_TPA_2019)) +
+  geom_point(#size=5,
+    pch=21,
+    alpha=0.8,
+    aes(bg=ECO_GRP_NEW_NAM,
+        size=PREV_TOTAL/AREA_TOTAL))+
+  xlab("Adult mortality") +
+  ylab("Seedling density (per acre)") +
+  scale_color_manual(name = "Ecological Province",aesthetics=c("bg"),
+                     values = regioncolors)+
+  scale_size(name = "2000-2009 adult density",
+             range=c(1,15)) +
+  theme(legend.position="none") +
+  geom_line(aes(y=exp(fitted(fit))),
+            lwd=2)
+
+
+  geom_smooth(method = "lm", formula = y~x,
+              lwd=2, col="black",fill=NA, 
+              inherit.aes = T,
+              aes(weight=(PREV_TOTAL/AREA_TOTAL)))
+
+
+              #method.args = list(weights=dall.er.abla$PREV_TOTAL/dall.er.abla$AREA_TOTAL))
+
+```
+
+
+```{r}
+dall.er.abla %>% 
+  ggplot(.,
+         aes(x = (MORT_TOTAL/PREV_TOTAL)*100,
+             y = SAP_TOTAL/AREA_TOTAL)) +
+  geom_point(#size=5,
+    pch=21,
+    alpha=0.8,
+    aes(bg=ECO_GRP_NEW_NAM,
+        size=PREV_TOTAL/AREA_TOTAL))+
+  xlab("Adult mortality") +
+  ylab("Sapling density (per acre)") +
+  scale_color_manual(name = "Ecological Province",aesthetics=c("bg"),
+                     values = regioncolors)+
+  scale_size(name = "2000-2009 adult density",
+             range=c(1,15)) +
+  theme(legend.position="none")
+
+```
+
+
+# Figure 4
+
+idea here will be to show distribution of fire and ID mortality, with contributions to mortality
+
+
+```{r}
+## playing with area estimation based on either condition classes or whether mortality was observed
+
+popinfo <- rFIA::getDesignInfo(all.fia,type="ALL") %>% 
+  left_join(all.fia$POP_STRATUM %>% 
+              select(STRATUM_CN=CN,
+                     EXPNS),
+            by="STRATUM_CN")
+
+fire.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="fire") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+insect.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="insect") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+disease.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="disease") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+animal.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="animal") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+competition.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="competition") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+weather.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="weather") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+land.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="land_use") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+unknown.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19,
+         agent_key=="unknown") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+all.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         SPCD==19) %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+mort.area.all <- all.fia$PLOT %>% 
+  left_join(popinfo %>% 
+              select(PLT_CN,EXPNS)) %>%
+  summarise(fire.area = sum(EXPNS*ifelse(PLT_CN %in% fire.plots, 1, 0), na.rm=T),
+            insect.area = sum(EXPNS*ifelse(PLT_CN %in% insect.plots, 1, 0), na.rm=T),
+            disease.area = sum(EXPNS*ifelse(PLT_CN %in% disease.plots, 1, 0), na.rm=T),
+            id.area = sum(EXPNS*ifelse(PLT_CN %in% c(disease.plots,insect.plots), 1, 0), na.rm=T),
+            fid.area = sum(EXPNS*ifelse(PLT_CN %in% c(fire.plots,disease.plots,insect.plots), 1, 0), na.rm=T),
+            animal.area = sum(EXPNS*ifelse(PLT_CN %in% animal.plots, 1, 0), na.rm=T),
+            competition.area = sum(EXPNS*ifelse(PLT_CN %in% competition.plots, 1, 0), na.rm=T),
+            weather.area = sum(EXPNS*ifelse(PLT_CN %in% weather.plots, 1, 0), na.rm=T),
+            land.area = sum(EXPNS*ifelse(PLT_CN %in% land.plots, 1, 0), na.rm=T),
+            unknown.area = sum(EXPNS*ifelse(PLT_CN %in% unknown.plots, 1, 0), na.rm=T),
+            total.area = sum(EXPNS*ifelse(PLT_CN %in% all.plots, 1, 0), na.rm=T))
+
+mort.area.er <- all.fia$PLOT %>% 
+  left_join(popinfo %>% 
+              select(PLT_CN,EXPNS)) %>%
+  group_by(ECOSUBCD) %>%
+  filter(ECOSUBCD %in% er4.abla$MAP_UNIT_S) %>% 
+  summarise(area.fire = sum(EXPNS*ifelse(PLT_CN %in% fire.plots, 1, 0), na.rm=T),
+            area.insect = sum(EXPNS*ifelse(PLT_CN %in% insect.plots, 1, 0), na.rm=T),
+            area.disease = sum(EXPNS*ifelse(PLT_CN %in% disease.plots, 1, 0), na.rm=T),
+            area.id = sum(EXPNS*ifelse(PLT_CN %in% c(disease.plots,insect.plots), 1, 0), na.rm=T),
+            area.fid = sum(EXPNS*ifelse(PLT_CN %in% c(fire.plots,disease.plots,insect.plots), 1, 0), na.rm=T),
+            area.animal = sum(EXPNS*ifelse(PLT_CN %in% animal.plots, 1, 0), na.rm=T),
+            area.competition = sum(EXPNS*ifelse(PLT_CN %in% competition.plots, 1, 0), na.rm=T),
+            area.weather = sum(EXPNS*ifelse(PLT_CN %in% weather.plots, 1, 0), na.rm=T),
+            area.land = sum(EXPNS*ifelse(PLT_CN %in% land.plots, 1, 0), na.rm=T),
+            area.unknown = sum(EXPNS*ifelse(PLT_CN %in% unknown.plots, 1, 0), na.rm=T),
+            area.total = sum(EXPNS*ifelse(PLT_CN %in% all.plots, 1, 0), na.rm=T))
+
+dall.er.abla <- dall.er.abla %>% 
+  left_join(mort.area.er, by = c("MAP_UNIT_S"="ECOSUBCD")) %>% 
+  mutate(area.fire.prop = area.fire/area.total,
+         area.id.prop = area.id/area.total)
+
+```
+
+option 1 -- with  lines around provinces  and just red shading
+```{r}
+
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col="darkgray",
+          fill = "wheat") + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray") +
+  
+  geom_sf(data = dall.er.abla %>%
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9) %>%
+            group_by(ECO_GRP_NEW_NAM) %>%
+            summarise(geometry = sf::st_union(geometry)),
+          #aes(col=ECO_GRP_NEW_NAM),
+          #lwd=0.7,
+          col="gray",
+          fill=NA)+
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          col=NA,
+          aes(fill = area.fire.prop*100)) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray",
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1"))+
+  scale_fill_steps(name = "",
+                   na.value="darkgray",
+                   low="white",
+                   high="firebrick2",
+                   limits=c(0,100),
+                   n.breaks=7)+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) + 
+  scale_color_manual(name = "Ecological Province",
+                     values = c("Cascade Mixed Forest" = "forestgreen",
+                                "Northern Rocky Mountain Forest-Steppe" = "dodgerblue4",
+                                "Middle Rocky Mountain Steppe" = "seagreen2",
+                                "Southern Rocky Mountain Steppe" = "gold3",
+                                "zIntermountain Semi-Desert" = "firebrick2",
+                                "AZ-NM Mountains" = "gray20")) +
+  theme(legend.key.size = unit(2,"cm"))
+
+
+
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col="darkgray",
+          fill = "wheat") + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray") +
+  
+  geom_sf(data = dall.er.abla %>%
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9) %>%
+            group_by(ECO_GRP_NEW_NAM) %>%
+            summarise(geometry = sf::st_union(geometry)),
+          #aes(col=ECO_GRP_NEW_NAM),
+          #lwd=0.7,
+          col="gray",
+          fill=NA)+ 
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          col=NA,
+          aes(fill = area.id.prop*100)) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray",
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1"))+
+  scale_fill_steps(name = "",
+                   na.value="darkgray",
+                   low="white",
+                   high="firebrick2",
+                   limits=c(0,100),
+                   n.breaks=7)+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) + 
+  scale_color_manual(name = "Ecological Province",
+                     values = c("Cascade Mixed Forest" = "forestgreen",
+                                "Northern Rocky Mountain Forest-Steppe" = "dodgerblue4",
+                                "Middle Rocky Mountain Steppe" = "seagreen2",
+                                "Southern Rocky Mountain Steppe" = "gold3",
+                                "zIntermountain Semi-Desert" = "firebrick2",
+                                "AZ-NM Mountains" = "gray20"))+
+  theme(legend.key.size = unit(2,"cm"))
+
+
+```
+
+
+option 2 -- matches figure 3
+```{r}
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9) %>% 
+            sf::st_union(),
+          col=linecolor,
+          fill=NA) +  
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          #col=NA,
+          lwd=1,
+          aes(fill = ECO_GRP_NEW_NAM,
+              col=ECO_GRP_NEW_NAM)) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          fill="white",
+          col=NA,
+          aes(alpha=-area.fire.prop)) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  scale_color_manual(name = "Ecological Province",aesthetics=c("fill","col"),
+                     values = regioncolors)+
+  scale_alpha_binned(name = "fire footprint",range = c(0.0,0.95),
+                     breaks=c(0,-0.25,-0.5,-0.75,-1))+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  theme(legend.position="none")
+
+
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9) %>% 
+            sf::st_union(),
+          col=linecolor,
+          fill=NA) +  
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          #col=NA,
+          lwd=1,
+          aes(fill = ECO_GRP_NEW_NAM,
+              col=ECO_GRP_NEW_NAM)) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          fill="white",
+          col=NA,
+          aes(alpha=-area.id.prop)) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  scale_color_manual(name = "Ecological Province",aesthetics=c("fill","col"),
+                     values = regioncolors)+
+  scale_alpha_binned(name = "ID footprint",range = c(0.0,0.95),
+                     breaks=c(0,-0.25,-0.5,-0.75,-1))+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  theme(legend.position="none")
+
+```
+
+
+```{r}
+
+dall.er.abla %>%
+  sf::st_drop_geometry() %>% 
+  ggplot(.) +
+  geom_point(aes(x = area.fire.prop,
+                 #y = TOT_MORT/PREV_TOTAL),
+                 y = FIRE_MORT/PREV_TOTAL),
+             pch = 19,
+             col = "firebrick2",
+             alpha = 0.5,
+             size = 4) +
+  geom_point(aes(x = area.id.prop,
+                 #y = TOT_MORT/PREV_TOTAL),
+                 y = ID_MORT/PREV_TOTAL),
+             pch = 19,
+             col = "dodgerblue2",
+             alpha = 0.5,
+             size = 4) +
+  geom_smooth(aes(x = area.fire.prop,
+                  #y = TOT_MORT/PREV_TOTAL,
+                  y = FIRE_MORT/PREV_TOTAL,
+                  col = "Fire"),
+              #col="firebrick3",
+              lwd=2,
+              fill = "gray30",
+              method="lm")+
+  geom_smooth(aes(x = area.id.prop,
+                  #y = TOT_MORT/PREV_TOTAL,
+                  y = ID_MORT/PREV_TOTAL,
+                  col = "Insect & disease"),
+              # col="dodgerblue3",
+              lwd=2,
+              fill = "gray30",
+              method="lm")+
+  labs(x = "Proportion area impacted",
+       y = "Proportion tree mortality",
+       color = "Mortality source") +
+  scale_color_manual(values=c("Fire" = "firebrick3",
+                              "Insect & disease" = "dodgerblue3")) +
+  guides(col=guide_legend(override.aes = list(fill=NA))) +
+  theme(legend.position = "none") +
+  lims(x=c(0,1))
+
+
+
+dall.er.abla %>%
+  sf::st_drop_geometry() %>% 
+  ggplot(.) +
+  geom_point(aes(x = area.fire.prop,
+                 y = TOT_MORT/PREV_TOTAL),
+             #y = FIRE_MORT/PREV_TOTAL),
+             pch = 19,
+             col = "firebrick2",
+             alpha = 0.5,
+             size = 4) +
+  geom_point(aes(x = area.id.prop,
+                 y = TOT_MORT/PREV_TOTAL),
+             #y = ID_MORT/PREV_TOTAL),
+             pch = 19,
+             col = "dodgerblue2",
+             alpha = 0.5,
+             size = 4) +
+  geom_smooth(aes(x = area.fire.prop,
+                  y = TOT_MORT/PREV_TOTAL,
+                  #y = FIRE_MORT/PREV_TOTAL,
+                  col = "Fire"),
+              #col="firebrick3",
+              lwd=2,
+              fill = "gray30",
+              method="lm")+
+  geom_smooth(aes(x = area.id.prop,
+                  y = TOT_MORT/PREV_TOTAL,
+                  #y = ID_MORT/PREV_TOTAL,
+                  col = "Insect & disease"),
+              # col="dodgerblue3",
+              lwd=2,
+              fill = "gray30",
+              method="lm")+
+  labs(x = "Proportion area impacted",
+       y = "Proportion tree mortality",
+       color = "Mortality source") +
+  scale_color_manual(values=c("Fire" = "firebrick3",
+                              "Insect & disease" = "dodgerblue3")) +
+  guides(col=guide_legend(override.aes = list(fill=NA))) +
+  theme(legend.position = "bottom") +
+  lims(x=c(0,1))
+
+
+
+dall.er.abla %>%
+  sf::st_drop_geometry() %>% 
+  ggplot(.) +
+  geom_point(aes(x = area.fid/area.total,
+                 y = TOT_MORT/PREV_TOTAL),
+             #y = FIRE_MORT/PREV_TOTAL),
+             pch = 19,
+             col = "firebrick2",
+             alpha = 0.5,
+             size = 4) +
+  geom_smooth(aes(x = area.fid/area.total,
+                  y = TOT_MORT/PREV_TOTAL),
+              col="firebrick3",
+              lwd=2,
+              fill = "gray30",
+              method="lm")+
+  labs(x = "Proportion area impacted",
+       y = "Proportion tree mortality",
+       color = "Mortality source") +
+  theme(legend.position = "none") +
+  lims(x=c(0,1))
+
+```
+
+
+# Figure 5
+
+```{r}
+
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  geom_sf(data=dall.er.abla,
+          col=linecolor,
+          fill=NA)+
+  geom_sf(data = dall.er.abla,
+          col=NA,
+          aes(fill = as.factor(quadrant.baa))) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor,
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1"),
+        legend.position="none")+
+  scale_fill_discrete(name = "",
+                      type=c("firebrick4","firebrick2","dodgerblue4","skyblue1"))+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6))
+
+```
+
+```{r}
+
+abla.plots <- all.fia$TREE %>% 
+  filter(SPCD==19) %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  left_join(dall.er.abla %>% 
+              sf::st_drop_geometry() %>% 
+              select(MAP_UNIT_S,quadrant.baa),
+            by=c("ECOSUBCD"="MAP_UNIT_S")) %>% 
+  mutate(abla.pres = ifelse(PLT_CN %in% abla.plots | PREV_PLT_CN %in% abla.plots,
+                            1,0))
+
+all.fia$TREE <- all.fia$TREE %>% 
+  mutate(abla = ifelse(SPCD==19,"abla","nonabla"))
+
+test <- all.fia %>% 
+  growMort_dlp(db = .,
+               stateVar="TPA",
+               # polys=er4.abla %>% 
+               #   sf::st_as_sf() %>% 
+               #   select(MAP_UNIT_S),
+               #treeDomain = SPCD==19,
+               areaDomain = abla.pres==1,
+               totals = TRUE,
+               grpBy = c(quadrant.baa, abla, agent_key),
+               #bySpecies = T,
+               returnSpatial = F, 
+               nCores = 4,
+               variance = T,
+               sizeThresh = 5,
+               evals = evals,
+               method="TI") %>% 
+  filter(agent_key!="unknown2") %>% 
+  group_by(quadrant.baa) %>% 
+  filter(YEAR==max(YEAR))
+
+
+test %>% 
+  group_by(quadrant.baa, abla) %>% 
+  mutate(PREV_TOTAL2=PREV_TOTAL/sum(PREV_TOTAL),
+         PREV_TOTAL_SD = sqrt(PREV_TOTAL_VAR)) %>% 
+  ggplot(.,
+         aes(x = factor(agent_key,levels = c("fire","disease","insect","weather","unknown1","competition","land use", "animal")),
+             y = PREV_TOTAL/1e6,
+             group=abla))+
+  geom_col(aes(fill = as.factor(quadrant.baa),
+               alpha=abla),
+           position=position_dodge(0.9),
+           col="black") +
+  geom_errorbar(aes(ymin = (PREV_TOTAL - (PREV_TOTAL_SD*1.96))/1e6,
+                    ymax = (PREV_TOTAL + (PREV_TOTAL_SD*1.96))/1e6),
+                position=position_dodge(0.9),
+                width=0.3,
+                lwd=0.8)+
+  facet_wrap(facets=~factor(quadrant.baa, levels=c("2","3","1","4")),scales="free_y") +
+  scale_fill_discrete(name = "",
+                      type=c("firebrick4","firebrick2","dodgerblue4","skyblue1")) +   
+  scale_alpha_manual(values = c("abla" = 1,
+                                "nonabla" = 0.3)) +
+  xlab("")+
+  ylab("Mortality (million trees)")+
+  theme(axis.text.x = element_text(angle=45,hjust=1),
+        strip.text.x=element_blank())
+
+```
+
+
+
+# Miscellaneous
+
+Seedling density map
+```{r}
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col="darkgray",
+          fill = "wheat") + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray") +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9) %>% 
+            sf::st_union(),
+          col="darkgray",
+          fill=NA) +  
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          #col=NA,
+          aes(fill = ECO_GRP_NEW_NAM,
+              col=ECO_GRP_NEW_NAM)) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          fill="white",
+          col=NA,
+          aes(alpha=-SEED_TPA_2019)) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray",
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  scale_color_manual(name = "Ecological Province",aesthetics=c("fill","col"),
+                     values = c("Cascade Mixed Forest" = "forestgreen",
+                                "Northern Rocky Mountain Forest-Steppe" = "dodgerblue4",
+                                "Middle Rocky Mountain Steppe" = "gold3",
+                                "Southern Rocky Mountain Steppe" = "seagreen3",
+                                "zIntermountain Semi-Desert" = "firebrick2",
+                                "AZ-NM Mountains" = "gray20"))+
+  scale_alpha_binned(name = "seedling density",range = c(0.0,0.95),
+                     breaks=c(0,-500,-1000, -1500, -2100))+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6))
+```
+
+Sapling density map
+```{r}
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col="darkgray",
+          fill = "wheat") + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray") +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9) %>% 
+            sf::st_union(),
+          col="darkgray",
+          fill=NA) +  
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          #col=NA,
+          aes(fill = ECO_GRP_NEW_NAM,
+              col=ECO_GRP_NEW_NAM)) +
+  geom_sf(data = dall.er.abla %>% 
+            filter(!is.na(TPA_CHNG_PERC),
+                   nPlots_AREA>9),
+          fill="white",
+          col=NA,
+          aes(alpha=-(SAP_TOTAL/AREA_TOTAL))) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray",
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1")) +
+  scale_color_manual(name = "Ecological Province",aesthetics=c("fill","col"),
+                     values = c("Cascade Mixed Forest" = "forestgreen",
+                                "Northern Rocky Mountain Forest-Steppe" = "dodgerblue4",
+                                "Middle Rocky Mountain Steppe" = "gold3",
+                                "Southern Rocky Mountain Steppe" = "seagreen3",
+                                "zIntermountain Semi-Desert" = "firebrick2",
+                                "AZ-NM Mountains" = "gray20"))+
+  scale_alpha_binned(name = "sapling density",range = c(0.0,0.95),
+                     breaks=c(0,-100,-200, -300, -400),na.value=0.95)+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) 
+
+```
+
+
+```{r}
+
+dall.er.abla %>% 
+  sf::st_drop_geometry() %>% 
+  select(MAP_UNIT_S,quadrant.baa,contains("area"),AREA_TOTAL) %>% 
+  group_by(quadrant.baa) %>% 
+  summarise(across(contains("area"),sum),
+            AREA_TOTAL=sum(AREA_TOTAL)) %>% 
+  pivot_longer(cols = contains("area"),names_to = "disturbance",values_to="area") %>% 
+  filter(disturbance %in% c("area.fire","area.insect","area.disease",
+                            "area.animal","area.competition","area.weather",
+                            "area.land","area.unknown")) %>%
+  ggplot(., aes(x = disturbance,
+                y = area)) +
+  geom_col(aes(fill = as.factor(quadrant.baa))) +
+  facet_wrap(facets=~as.factor(quadrant.baa)) +
+  scale_fill_discrete(name = "",
+                      type=c("firebrick4","firebrick2","dodgerblue4","skyblue1")) +
+  theme(axis.text.x = element_text(angle=45,hjust=1))
+
+```
+
+
+
+TPA
+```{r}
+
+
+ggplot() +
+  geom_sf(data = cont %>% 
+            as(.,"sf"),
+          col="darkgray",
+          fill = "wheat") + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray") +
+  geom_sf(data=dall.er.abla,
+          col="darkgray",
+          fill=NA)+
+  geom_sf(data = dall.er.abla,
+          col=NA,
+          aes(fill = as.factor(quadrant.tpa))) +
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          fill=NA,
+          col="darkgray",
+          alpha=0.1,
+          lwd=0.3,
+          lty=2) +
+  theme(panel.background = element_rect(fill="skyblue1"))+
+  scale_fill_discrete(name = "",
+                      type=c("firebrick4","firebrick2","dodgerblue4","skyblue1"))+
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6))
+
+```
+
+# EXPORT SUPP TABLE
+
+```{r}
+
+dall.er.abla %>% 
+  sf::st_drop_geometry() %>% 
+  select(Province = ECO_GRP_NEW_NAM,
+         nPlots_TREE,
+         nPlots_AREA,
+         N,
+         Subsection = MAP_UNIT_S,
+         CURR_TPA.abla,
+         CURR_TPA.abla.var,
+         PREV_TPA.abla,
+         PREV_TPA.abla.var,
+         CHNG_PERC.tpa.abla,
+         CHNG_PERC.tpa.abla.var,
+         TPA_CHNG_PERC.nonabla,
+         MORT_TOTAL,
+         MORT_TOTAL_VAR,
+         FIRE_MORT,
+         DISEASE_MORT,
+         INSECT_MORT,
+         area.fire.prop,
+         area.disease.prop = area.disease/area.total,
+         area.id.prop) %>% 
+  write.table(.,
+              file="analysis_out.csv",
+              sep=",",
+              row.names=F)
+
+```
+
+
+
+
+
+
+
+

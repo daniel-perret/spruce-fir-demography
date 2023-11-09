@@ -53,7 +53,7 @@ regioncolors <- c("Cascade Mixed Forest" = "#009E73",
                   "AZ-NM Mountains" = "#D55E00")
 
 # sourcing estimation base code
-source("/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/status_trends/growMort_rewrite_METRIC.R")
+source("code/growMort_rewrite_METRIC.R")
 
 ```
 
@@ -114,7 +114,7 @@ all.fia$COND <- all.fia$COND %>%
 # Because annual inventories began later in Wyoming, we need to link back to earlier period inventories in order to make our eventual change estimates. This code does that by using plot number links and tree azimuth and distance. 
 
 ## plots
-wy.p2a.plotlink <- read.csv("wy_p2alink.csv",header=T,stringsAsFactors=F) %>%
+wy.p2a.plotlink <- read.csv("data/wy_p2alink.csv",header=T,stringsAsFactors=F) %>%
   select(CN, PREV_PLT_CN.update = PREV_PLT_CN)
 
 ### updating plots
@@ -132,7 +132,7 @@ all.fia$PLOT <- all.fia$PLOT %>%
                          MEASYEAR-MEASYEAR.prev,
                          REMPER))
 ## trees
-wy.p2a.treelink <- read.csv("wy_p2alink_tree.csv",header=T,stringsAsFactors=F) %>% 
+wy.p2a.treelink <- read.csv("data/wy_p2alink_tree.csv",header=T,stringsAsFactors=F) %>% 
   rename(PREV_TRE_CN.update = PREV_TRE_CN)
 
 all.fia$TREE <- all.fia$TREE %>% 
@@ -259,7 +259,7 @@ range <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_s
   spTransform(.,
               CRSobj = CRS(base.proj))
 
-# making a SpatialPointsDataFrame for subalpine fir plot locations (fuzzed)
+# making a SpatialPointsDataFrame for of co-presence plot locations
 co.pres.sp <- all.fia$PLOT %>%
   filter(co.pres ==1,
          INVYR > 2009, 
@@ -293,7 +293,7 @@ er2 <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spa
 
 ### co-occurrence polygon!
 
-co.shp <- readOGR(dsn="co_occ_shp/", layer = "co_occ") %>% 
+co.shp <- readOGR(dsn="data/co_occ_shp/", layer = "co_occ") %>% 
   spTransform(.,
               CRSobj = CRS(base.proj))
 
@@ -301,7 +301,7 @@ co.shp.buff <- sf::st_buffer(co.shp %>%
                                sf::st_as_sf(),
                              dist = 5000)
 
-# extracting ecoregions that contain subalpine fir
+# extracting ecoregions that contain both subalpine fir and engelmann spruce
 
 er4.co <- er4[co.pres.sp,]
 er3.co <- er3[co.pres.sp,]
@@ -359,17 +359,17 @@ er2.co <- er2[co.pres.sp,]
 #   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names = "{.col}_recent"))
 # 
 
-write.csv(clim.norms, file = "clim_norms.csv", row.names = F)
-write.csv(clim.base, file = "clim_base.csv", row.names = F)
-write.csv(clim.remper, file = "clim_remper.csv", row.names = F)
-write.csv(clim.recent, file = "clim_recent.csv", row.names = F)
+#write.csv(clim.norms, file = "data/clim_norms.csv", row.names = F)
+#write.csv(clim.base, file = "data/clim_base.csv", row.names = F)
+#write.csv(clim.remper, file = "data/clim_remper.csv", row.names = F)
+#write.csv(clim.recent, file = "data/clim_recent.csv", row.names = F)
 
 ## Only re-run climate processing code if something needs to be changed! It takes forever to run!
 
-clim.norms <- read.csv("clim_norms.csv",header=T,stringsAsFactors=F)
-clim.base <- read.csv("clim_base.csv", header=T, stringsAsFactors=F)
-clim.remper <- read.csv("clim_remper.csv",header=T,stringsAsFactors=F)
-clim.recent <- read.csv("clim_recent.csv",header=T,stringsAsFactors=F)
+clim.norms <- read.csv("data/clim_norms.csv",header=T,stringsAsFactors=F)
+clim.base <- read.csv("data/clim_base.csv", header=T, stringsAsFactors=F)
+clim.remper <- read.csv("data/clim_remper.csv",header=T,stringsAsFactors=F)
+clim.recent <- read.csv("data/clim_recent.csv",header=T,stringsAsFactors=F)
 
 # joining climate variables to FIA plots
 all.fia$PLOT <- all.fia$PLOT %>% 
@@ -388,9 +388,9 @@ all.fia$PLOT <- all.fia$PLOT %>%
 
 ###### CLIMNA raster data
 
-past.climna <- raster::stack("/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/PILA/climNA_rasters/MAT.tif",
-                             "/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/PILA/climNA_rasters/MAP.tif",
-                             "/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/PILA/climNA_rasters/CMD.tif")%>% 
+past.climna <- raster::stack("/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/sugarpine-status-trends/data/climNA_rasters/MAT.tif",
+                             "/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/sugarpine-status-trends/data/climNA_rasters/MAP.tif",
+                             "/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/sugarpine-status-trends/data/climNA_rasters/CMD.tif")%>% 
   projectRaster(.,crs = CRS(base.proj)) 
 
 # mask(.,
@@ -529,21 +529,29 @@ dall.er.ablapien <- dall.er.sp %>%
                              CHNG_PERC.tph_93 < 0 & CHNG_PERC.bah_93 >= 0 ~ "development",
                              CHNG_PERC.tph_93 >= 0 & CHNG_PERC.bah_93 >= 0 ~ "densification",
                              CHNG_PERC.tph_93 >= 0 & CHNG_PERC.bah_93 < 0 ~ "turnover"),
-         mult.comp.coexist = case_when(quad.19 == "decline" & quad.93 == "decline" ~ "general decline",
-                                       quad.19 == "turnover" & quad.93 == "decline" ~ "general decline",
-                                       quad.19 == "decline" & quad.93 == "turnover" ~ "general decline",
+         # mult.comp.coexist = case_when(quad.19 == "decline" & quad.93 == "decline" ~ "replacement",
+         #                               quad.19 == "turnover" & quad.93 == "decline" ~ "general decline",
+         #                               quad.19 == "decline" & quad.93 == "turnover" ~ "general decline",
+         #                               
+         #                               quad.19 == "decline" & quad.93 %in% c("development","densification") ~ "mismatched trajectories",
+         #                               quad.93 == "decline" & quad.19 %in% c("development","densification") ~ "mismatched trajectories",
+         #                               
+         #                               quad.19 == "turnover" & quad.93 %in% c("turnover","development","densification") ~ "vulnerable",
+         #                               quad.93 == "turnover" & quad.19 %in% c("turnover","development","densification") ~ "vulnerable",
+         #                               #quad.19 == "turnover" & quad.93 == "densification" ~ "depends",
+         #                               #quad.93 == "turnover" & quad.19 == "densification" ~ "depends",
+         #                               #quad.93 == "turnover" & quad.19 == "densification" ~ "depends",
+         #                               #quad.93 == "turnover" & quad.19 == "densification" ~ "depends",
+         #                               
+         #                               quad.19 %in% c("development","densification") & quad.93 %in% c("development","densification") ~ "likely persistence"))
+         mult.comp.coexist = case_when(quad.19 == "decline" & quad.93 == "decline" ~ "replacement",
+                                       quad.19 == "turnover" | quad.93 == "turnover" ~ "structural change",
                                        
-                                       quad.19 == "decline" & quad.93 %in% c("development","densification") ~ "mismatched trajectories",
-                                       quad.93 == "decline" & quad.19 %in% c("development","densification") ~ "mismatched trajectories",
-                                       
-                                       quad.19 == "turnover" & quad.93 %in% c("turnover","development","densification") ~ "vulnerable",
-                                       quad.93 == "turnover" & quad.19 %in% c("turnover","development","densification") ~ "vulnerable",
-                                       #quad.19 == "turnover" & quad.93 == "densification" ~ "depends",
-                                       #quad.93 == "turnover" & quad.19 == "densification" ~ "depends",
-                                       #quad.93 == "turnover" & quad.19 == "densification" ~ "depends",
-                                       #quad.93 == "turnover" & quad.19 == "densification" ~ "depends",
-                                       
-                                       quad.19 %in% c("development","densification") & quad.93 %in% c("development","densification") ~ "likely persistence"))
+                                       quad.19 == "decline" & quad.93 %in% c("development","densification") ~ "compositional change",
+                                       quad.93 == "decline" & quad.19 %in% c("development","densification") ~ "compositional change",
+  
+                                       quad.19 %in% c("development","densification") & 
+                                         quad.93 %in% c("development","densification") ~ "resilience"))
 
 ```
 
@@ -831,16 +839,16 @@ mort.src.est %>%
                 position=position_dodge(0.9),
                 width=0.3,
                 lwd=0.8)+
-  facet_wrap(facets=~factor(mult.comp.coexist, levels=c("likely persistence",
-                                                        "vulnerable",
-                                                        "mismatched trajectories",
-                                                        "general decline")),
+  facet_wrap(facets=~factor(mult.comp.coexist, levels=c("resilience",
+                                                        "structural change",
+                                                        "compositional change",
+                                                        "replacement")),
              scales="free_y",ncol = 1) +
   scale_fill_manual(name = "multispecies trajectory",
-                    values = c("likely persistence" = "dodgerblue2",
-                               "vulnerable" = "gold2",
-                               "mismatched trajectories" = "firebrick2",
-                               "general decline" = "firebrick4"),
+                    values = c("resilience" = "dodgerblue2",
+                               "structural change" = "gold2",
+                               "compositional change" = "firebrick2",
+                               "replacement" = "firebrick4"),
                     aesthetics = c("col","fill")) +  
   scale_alpha_manual(name = "species",
                      values = c("abla" = 1,

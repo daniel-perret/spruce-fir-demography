@@ -517,39 +517,29 @@ dall.er.ablapien <- dall.er.sp %>%
               values_from = c(5:86,88:ncol(.))) %>% 
   filter(CURR_TPH_93 > 0 & CURR_TPH_19 > 0 |
            PREV_TPH_93>0 & CURR_TPH_19>0) %>% 
-  mutate(quad.baa = case_when(CHNG_PERC.bah_19 < 0 & CHNG_PERC.bah_93 < 0 ~ 1,
-                              CHNG_PERC.bah_19 < 0 & CHNG_PERC.bah_93 >= 0 ~ 2,
-                              CHNG_PERC.bah_19 >= 0 & CHNG_PERC.bah_93 >= 0 ~ 3,
-                              CHNG_PERC.bah_19 >= 0 & CHNG_PERC.bah_93 < 0 ~ 4),
-         quad.19 = case_when(CHNG_PERC.tph_19 < 0 & CHNG_PERC.bah_19 < 0 ~ "decline",
-                             CHNG_PERC.tph_19 < 0 & CHNG_PERC.bah_19 >= 0 ~ "development",
-                             CHNG_PERC.tph_19 >= 0 & CHNG_PERC.bah_19 >= 0 ~ "densification",
-                             CHNG_PERC.tph_19 >= 0 & CHNG_PERC.bah_19 < 0 ~ "turnover"),
-         quad.93 = case_when(CHNG_PERC.tph_93 < 0 & CHNG_PERC.bah_93 < 0 ~ "decline",
-                             CHNG_PERC.tph_93 < 0 & CHNG_PERC.bah_93 >= 0 ~ "development",
-                             CHNG_PERC.tph_93 >= 0 & CHNG_PERC.bah_93 >= 0 ~ "densification",
-                             CHNG_PERC.tph_93 >= 0 & CHNG_PERC.bah_93 < 0 ~ "turnover"),
-         # mult.comp.coexist = case_when(quad.19 == "decline" & quad.93 == "decline" ~ "replacement",
-         #                               quad.19 == "turnover" & quad.93 == "decline" ~ "general decline",
-         #                               quad.19 == "decline" & quad.93 == "turnover" ~ "general decline",
-         #                               
-         #                               quad.19 == "decline" & quad.93 %in% c("development","densification") ~ "mismatched trajectories",
-         #                               quad.93 == "decline" & quad.19 %in% c("development","densification") ~ "mismatched trajectories",
-         #                               
-         #                               quad.19 == "turnover" & quad.93 %in% c("turnover","development","densification") ~ "vulnerable",
-         #                               quad.93 == "turnover" & quad.19 %in% c("turnover","development","densification") ~ "vulnerable",
-         #                               #quad.19 == "turnover" & quad.93 == "densification" ~ "depends",
-         #                               #quad.93 == "turnover" & quad.19 == "densification" ~ "depends",
-         #                               #quad.93 == "turnover" & quad.19 == "densification" ~ "depends",
-         #                               #quad.93 == "turnover" & quad.19 == "densification" ~ "depends",
-         #                               
-         #                               quad.19 %in% c("development","densification") & quad.93 %in% c("development","densification") ~ "likely persistence"))
+  mutate(CHNG_PERC.bah_19.c = ifelse(abs(CHNG_PERC_CV.bah_19)>=100, 0, CHNG_PERC.bah_19),
+         CHNG_PERC.tph_19.c = ifelse(abs(CHNG_PERC_CV.tph_19)>=100, 0, CHNG_PERC.tph_19),
+         CHNG_PERC.bah_93.c = ifelse(abs(CHNG_PERC_CV.bah_93)>=100, 0, CHNG_PERC.bah_93),
+         CHNG_PERC.tph_93.c = ifelse(abs(CHNG_PERC_CV.tph_93)>=100, 0, CHNG_PERC.tph_93),
+         CHNG_PERC.bah_19.c = ifelse(is.na(CHNG_PERC.bah_19.c), 0, CHNG_PERC.bah_19.c),
+         CHNG_PERC.tph_19.c = ifelse(is.na(CHNG_PERC.tph_19.c), 0, CHNG_PERC.tph_19.c),
+         CHNG_PERC.bah_93.c = ifelse(is.na(CHNG_PERC.bah_93.c), 0, CHNG_PERC.bah_93.c),
+         CHNG_PERC.tph_93.c = ifelse(is.na(CHNG_PERC.tph_93.c), 0, CHNG_PERC.tph_93.c) ) %>% 
+  mutate(quad.19 = case_when(CHNG_PERC.tph_19.c < 0 & CHNG_PERC.bah_19.c < 0 ~ "decline",
+                             CHNG_PERC.tph_19.c < 0 & CHNG_PERC.bah_19.c >= 0 ~ "development",
+                             CHNG_PERC.tph_19.c >= 0 & CHNG_PERC.bah_19.c >= 0 ~ "densification",
+                             CHNG_PERC.tph_19.c >= 0 & CHNG_PERC.bah_19.c < 0 ~ "turnover"),
+         quad.93 = case_when(CHNG_PERC.tph_93.c < 0 & CHNG_PERC.bah_93.c < 0 ~ "decline",
+                             CHNG_PERC.tph_93.c < 0 & CHNG_PERC.bah_93.c >= 0 ~ "development",
+                             CHNG_PERC.tph_93.c >= 0 & CHNG_PERC.bah_93.c >= 0 ~ "densification",
+                             CHNG_PERC.tph_93.c >= 0 & CHNG_PERC.bah_93.c < 0 ~ "turnover"),
          mult.comp.coexist = case_when(quad.19 == "decline" & quad.93 == "decline" ~ "replacement",
+                                       
                                        quad.19 == "turnover" | quad.93 == "turnover" ~ "structural change",
                                        
                                        quad.19 == "decline" & quad.93 %in% c("development","densification") ~ "compositional change",
                                        quad.93 == "decline" & quad.19 %in% c("development","densification") ~ "compositional change",
-  
+                                       
                                        quad.19 %in% c("development","densification") & 
                                          quad.93 %in% c("development","densification") ~ "resilience"))
 
@@ -750,12 +740,6 @@ plot.attributes.prev <- growMort_dlp.metric(db = all.fia,
 
 ```{r}
 
-#quadrants:
-# 1 = both species decline
-# 2 = abla decrease, pien increase
-# 3 = both increase
-# 4 = pien decrease, abla increase
-
 ggplot() +
   geom_sf(data = cont %>% 
             as(.,"sf"),
@@ -771,21 +755,23 @@ ggplot() +
           fill = NA)+
   geom_sf(data = dall.er.ablapien,
           col=NA,
-          aes(fill = as.factor(quad.93))) +
+          aes(fill = factor(mult.comp.coexist))) +
   geom_sf(data = states %>% 
             as(.,"sf"),
           col=linecolor,
           fill=NA,
           lty=2) +
-  scale_fill_discrete(
-    #type=c("firebrick4","firebrick2","dodgerblue4","skyblue1")
-    #type=c("dodgerblue4","firebrick2","skyblue1","firebrick2")
-    type = c("firebrick4","dodgerblue4","skyblue1","firebrick2")
-  )+
+  scale_fill_manual(name = "multispecies trajectory",
+                    values = c("resilience" = "dodgerblue2",
+                               "structural change" = "gold2",
+                               "compositional change" = "firebrick2",
+                               "replacement" = "firebrick4"),
+                    aesthetics = c("col","fill"))+
   lims(x = c(-2.5e6, -0.5e6),
        y = c(1.00e6,3.25e6)) +
-  theme(legend.position="right",
+  theme(legend.position="none",
         panel.background = element_rect(fill="skyblue1"))
+
 
 
 
@@ -799,7 +785,7 @@ ggplot() +
 all.fia$PLOT <- all.fia$PLOT %>% 
   left_join(dall.er.ablapien %>% 
               sf::st_drop_geometry() %>% 
-              select(MAP_UNIT_S,quad.baa, quad.19, quad.93, mult.comp.coexist),
+              select(MAP_UNIT_S, quad.19, quad.93, mult.comp.coexist),
             by=c("ECOSUBCD"="MAP_UNIT_S"))
 
 all.fia$TREE <- all.fia$TREE %>% 
@@ -828,14 +814,14 @@ mort.src.est %>%
          PREV_TOTAL_SD = sqrt(PREV_TOTAL_VAR)) %>% 
   ggplot(.,
          aes(x = factor(agent_key,levels = c("fire","disease","insect","weather","unknown1","competition","land use", "animal")),
-             y = PREV_TOTAL,
+             y = PREV_TPH,
              group=focal))+
   geom_col(aes(fill = as.factor(mult.comp.coexist),
                alpha=focal),
            position=position_dodge(0.9),
            col="black") +
-  geom_errorbar(aes(ymin = (PREV_TOTAL - (PREV_TOTAL_SE)),
-                    ymax = (PREV_TOTAL + (PREV_TOTAL_SE))),
+  geom_errorbar(aes(ymin = (PREV_TPH - (CHNG_TPH_SE)),
+                    ymax = (PREV_TPH + (CHNG_TPH_SE))),
                 position=position_dodge(0.9),
                 width=0.3,
                 lwd=0.8)+
@@ -854,9 +840,10 @@ mort.src.est %>%
                      values = c("abla" = 1,
                                 "pien" = 0.3)) +
   xlab("")+
-  ylab("Mortality (individuals)")+
+  ylab("Mortality (individuals per hectare)")+
   theme(axis.text.x = element_text(angle=45,hjust=1),
-        strip.text.x = element_blank())
+        strip.text.x = element_blank(),
+        legend.position="none")
 
 ```
 

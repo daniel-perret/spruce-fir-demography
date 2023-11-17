@@ -9,7 +9,7 @@
    id="svg5"
    inkscape:version="1.1 (c68e22c387, 2021-05-23)"
    sodipodi:docname="multissp_comparisons_concept.svg"
-   inkscape:export-filename="C:\Users\DanielPerret\Box\01. daniel.perret Workspace\PROJECTS\forest_mortality\figures\multissp_concept_v1.png"
+   inkscape:export-filename="C:\Users\DanielPerret\Box\01. daniel.perret Workspace\PROJECTS\spruce-fir-demography\figures\change_categories.png"
    inkscape:export-xdpi="200"
    inkscape:export-ydpi="200"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
@@ -30,13 +30,13 @@
      fit-margin-left="0"
      fit-margin-right="0"
      fit-margin-bottom="0"
-     inkscape:zoom="0.38885732"
-     inkscape:cx="1600.8442"
-     inkscape:cy="567.04603"
+     inkscape:zoom="0.27496365"
+     inkscape:cx="1300.1719"
+     inkscape:cy="958.3085"
      inkscape:window-width="1920"
      inkscape:window-height="1017"
-     inkscape:window-x="1072"
-     inkscape:window-y="533"
+     inkscape:window-x="-8"
+     inkscape:window-y="88"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer1" />
   <defs
@@ -47,6 +47,17 @@
        width="167.15643"
        height="75.863301"
        id="rect48806" />
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath1184">
+      <rect
+         style="fill:#550000;stroke-width:0.471001;stroke-linecap:round"
+         id="rect1186"
+         width="110.17124"
+         height="187.99527"
+         x="139.02792"
+         y="2.1694715" />
+    </clipPath>
   </defs>
   <g
      inkscape:label="Layer 1"
@@ -170,23 +181,23 @@
        transform="matrix(1.5190182,0,0,1.4343666,-48.32659,90.947084)"><tspan
          x="113.84311"
          y="-63.604858"
-         id="tspan116556">
+         id="tspan118938">
 </tspan><tspan
          x="113.84311"
          y="-57.833122"
-         id="tspan116558">Species is flourishing. </tspan><tspan
+         id="tspan118940">Species is flourishing. </tspan><tspan
          x="113.84311"
          y="-52.061386"
-         id="tspan116560">Note that this doesn't </tspan><tspan
+         id="tspan118942">Note that this doesn't </tspan><tspan
          x="113.84311"
          y="-46.28965"
-         id="tspan116562">necessarily correspond </tspan><tspan
+         id="tspan118944">necessarily correspond </tspan><tspan
          x="113.84311"
          y="-40.517914"
-         id="tspan116564">with increasing stand </tspan><tspan
+         id="tspan118946">with increasing stand </tspan><tspan
          x="113.84311"
          y="-34.746178"
-         id="tspan116566">density.</tspan></text>
+         id="tspan118948">density.</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5.0189px;line-height:1.15;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre;inline-size:64.4068;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
@@ -196,32 +207,32 @@
        transform="matrix(1.5190182,0,0,1.4343666,-51.728652,164.06541)"><tspan
          x="113.84311"
          y="-63.604858"
-         id="tspan116568">
+         id="tspan118950">
 </tspan><tspan
          x="113.84311"
          y="-57.833122"
-         id="tspan116570">Normal stand </tspan><tspan
+         id="tspan118952">Normal stand </tspan><tspan
          x="113.84311"
          y="-52.061386"
-         id="tspan116572">development with trees </tspan><tspan
+         id="tspan118954">development with trees </tspan><tspan
          x="113.84311"
          y="-46.28965"
-         id="tspan116574">growing larger and </tspan><tspan
+         id="tspan118956">growing larger and </tspan><tspan
          x="113.84311"
          y="-40.517914"
-         id="tspan116576">crowding one another </tspan><tspan
+         id="tspan118958">crowding one another </tspan><tspan
          x="113.84311"
          y="-34.746178"
-         id="tspan116578">out. Whole can of worms </tspan><tspan
+         id="tspan118960">out. Whole can of worms </tspan><tspan
          x="113.84311"
          y="-28.974442"
-         id="tspan116580">to get into what's normal </tspan><tspan
+         id="tspan118962">to get into what's normal </tspan><tspan
          x="113.84311"
          y="-23.202707"
-         id="tspan116582">or not, trying to avoid </tspan><tspan
+         id="tspan118964">or not, trying to avoid </tspan><tspan
          x="113.84311"
          y="-17.430973"
-         id="tspan116584">that...</tspan></text>
+         id="tspan118966">that...</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5.0189px;line-height:1.15;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre;inline-size:68.4382;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
@@ -231,23 +242,23 @@
        transform="matrix(1.5190182,0,0,1.4343666,-156.41947,188.27176)"><tspan
          x="113.84311"
          y="-63.604858"
-         id="tspan116586">
+         id="tspan118968">
 </tspan><tspan
          x="113.84311"
          y="-57.833122"
-         id="tspan116588">Species is in decline. </tspan><tspan
+         id="tspan118970">Species is in decline. </tspan><tspan
          x="113.84311"
          y="-52.061386"
-         id="tspan116590">Individuals are dying, and </tspan><tspan
+         id="tspan118972">Individuals are dying, and </tspan><tspan
          x="113.84311"
          y="-46.28965"
-         id="tspan116592">the loss of biomass is not </tspan><tspan
+         id="tspan118974">the loss of biomass is not </tspan><tspan
          x="113.84311"
          y="-40.517914"
-         id="tspan116594">being compensated for by </tspan><tspan
+         id="tspan118976">being compensated for by </tspan><tspan
          x="113.84311"
          y="-34.746178"
-         id="tspan116596">new growth.</tspan></text>
+         id="tspan118978">new growth.</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:5.0189px;line-height:1.15;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre;inline-size:66.1985;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
@@ -257,26 +268,26 @@
        transform="matrix(1.5190182,0,0,1.4343666,-154.89501,84.503331)"><tspan
          x="113.84311"
          y="-63.604858"
-         id="tspan116598">
+         id="tspan118980">
 </tspan><tspan
          x="113.84311"
          y="-57.833122"
-         id="tspan116600">Replacement of large </tspan><tspan
+         id="tspan118982">Replacement of large </tspan><tspan
          x="113.84311"
          y="-52.061386"
-         id="tspan116602">trees with smaller trees, </tspan><tspan
+         id="tspan118984">trees with smaller trees, </tspan><tspan
          x="113.84311"
          y="-46.28965"
-         id="tspan116604">suggesting post-</tspan><tspan
+         id="tspan118986">suggesting post-</tspan><tspan
          x="113.84311"
          y="-40.517914"
-         id="tspan116606">disturbance recovery, </tspan><tspan
+         id="tspan118988">disturbance recovery, </tspan><tspan
          x="113.84311"
          y="-34.746178"
-         id="tspan116608">turnover of individuals in </tspan><tspan
+         id="tspan118990">turnover of individuals in </tspan><tspan
          x="113.84311"
          y="-28.974442"
-         id="tspan116610">the population</tspan></text>
+         id="tspan118992">the population</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.1111px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
@@ -369,14 +380,14 @@
          x="276.07437"
          y="-68.501434">b)</tspan></text>
     <rect
-       style="fill:#ff0000;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+       style="fill:#ff0000;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1;fill-opacity:1"
        id="rect32123-9"
        width="38.48531"
        height="38.485313"
        x="354.81161"
        y="-35.174091" />
     <rect
-       style="fill:#009db1;fill-opacity:1;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+       style="fill:#1c86ee;fill-opacity:1;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
        id="rect32131-6"
        width="38.48531"
        height="38.485313"
@@ -411,7 +422,7 @@
        x="393.29697"
        y="-35.174091" />
     <rect
-       style="fill:#009db1;fill-opacity:1;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+       style="fill:#1c86ee;fill-opacity:1;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
        id="rect32133-6"
        width="38.48531"
        height="38.485313"
@@ -446,7 +457,7 @@
        x="354.81161"
        y="3.3112321" />
     <rect
-       style="fill:#009db1;fill-opacity:1;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+       style="fill:#1c86ee;fill-opacity:1;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
        id="rect32135-6"
        width="38.48531"
        height="38.485313"
@@ -467,7 +478,7 @@
        x="354.81168"
        y="80.281837" />
     <rect
-       style="fill:#550000;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+       style="fill:#550000;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1;fill-opacity:1"
        id="rect1034-6-8"
        width="38.48531"
        height="38.485313"
@@ -481,14 +492,14 @@
        x="393.29691"
        y="3.3112321" />
     <rect
-       style="fill:#009db1;fill-opacity:1;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+       style="fill:#1c86ee;fill-opacity:1;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
        id="rect32137-7"
        width="38.48531"
        height="38.485313"
        x="470.26755"
        y="3.3112321" />
     <rect
-       style="fill:#ff0000;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+       style="fill:#ff0000;stroke:#000000;stroke-width:0.803349;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1;fill-opacity:1"
        id="rect32145-58"
        width="38.48531"
        height="38.485313"
@@ -715,7 +726,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#ffffff;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116612">30.4%</tspan></text>
+         id="tspan118994">10.1%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-91.70891,-180.26096)"
@@ -723,7 +734,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116614">5.9%</tspan></text>
+         id="tspan118996">3.2%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-91.623644,-221.10631)"
@@ -731,7 +742,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116616">7.7%</tspan></text>
+         id="tspan118998">5.2%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-95.308173,-260.53032)"
@@ -739,7 +750,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116618">15.4%</tspan></text>
+         id="tspan119000">18.2%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-52.969486,-260.52515)"
@@ -747,7 +758,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116620">1.0%</tspan></text>
+         id="tspan119002">2.7%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-53.126232,-221.10631)"
@@ -755,7 +766,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116622">1.1%</tspan></text>
+         id="tspan119004">1.5%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-53.126213,-180.26096)"
@@ -763,7 +774,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116624">1.0%</tspan></text>
+         id="tspan119006">0.5%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-53.126223,-143.48647)"
@@ -771,7 +782,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116626">1.0%</tspan></text>
+         id="tspan119008">1.0%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-13.789082,-143.48647)"
@@ -779,7 +790,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116628">4.0%</tspan></text>
+         id="tspan119010">3.9%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-13.944121,-180.25838)"
@@ -787,7 +798,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116630">0.3%</tspan></text>
+         id="tspan119012">0.3%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-14.021622,-221.10372)"
@@ -795,7 +806,7 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116632">3.3%</tspan></text>
+         id="tspan119014">6.3%</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,-13.943263,-260.52257)"
@@ -803,39 +814,39 @@
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116634">3.1%</tspan></text>
+         id="tspan119016">7.1%</tspan></text>
     <text
        xml:space="preserve"
-       transform="matrix(0.26458333,0,0,0.26458333,21.145267,-260.52257)"
+       transform="matrix(0.26458333,0,0,0.26458333,20.912205,-260.52257)"
        id="text52826"
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116636">12.6%</tspan></text>
+         id="tspan119018">20.5%</tspan></text>
     <text
        xml:space="preserve"
-       transform="matrix(0.26458333,0,0,0.26458333,24.81171,-221.10372)"
+       transform="matrix(0.26458333,0,0,0.26458333,24.493382,-221.10372)"
        id="text52830"
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116638">2.6%</tspan></text>
+         id="tspan119020">4.5%</tspan></text>
     <text
        xml:space="preserve"
-       transform="matrix(0.26458333,0,0,0.26458333,24.81171,-180.25838)"
+       transform="matrix(0.26458333,0,0,0.26458333,24.260838,-180.25838)"
        id="text52834"
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116640">2.3%</tspan></text>
+         id="tspan119022">3.8%</tspan></text>
     <text
        xml:space="preserve"
-       transform="matrix(0.26458333,0,0,0.26458333,24.912479,-143.48389)"
+       transform="matrix(0.26458333,0,0,0.26458333,20.609898,-143.48389)"
        id="text84146"
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#000000;fill-opacity:1;stroke:none"><tspan
          x="1704.9961"
          y="931.4229"
-         id="tspan116642">8.7%</tspan></text>
+         id="tspan119024">11.3%</tspan></text>
     <g
        id="g116379"
        transform="translate(-8.6602357,-1.9244968)">
@@ -848,7 +859,7 @@
          y="-161.79951"
          transform="matrix(1.089659,0,0,1.089659,7.8507405,178.52691)" />
       <rect
-         style="fill:#009db1;fill-opacity:1;stroke:#000000;stroke-width:0.313877;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+         style="fill:#1c86ee;fill-opacity:1;stroke:#000000;stroke-width:0.313877;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
          id="rect32133-2"
          width="15.036657"
          height="15.036659"
@@ -856,7 +867,7 @@
          y="-156.60664"
          transform="matrix(1.089659,0,0,1.089659,7.8507405,178.52691)" />
       <rect
-         style="fill:#ffcc00;fill-opacity:1;stroke:#000000;stroke-width:0.313877;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+         style="fill:#eec900;fill-opacity:1;stroke:#000000;stroke-width:0.313877;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
          id="rect32141-6"
          width="15.036657"
          height="15.036659"
@@ -864,7 +875,7 @@
          y="-141.57001"
          transform="matrix(1.089659,0,0,1.089659,7.8507405,178.52691)" />
       <rect
-         style="fill:#ff0000;stroke:#000000;stroke-width:0.313877;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+         style="fill:#ff0000;stroke:#000000;stroke-width:0.313877;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1;fill-opacity:1"
          id="rect32145-5"
          width="15.036657"
          height="15.036659"
@@ -872,7 +883,7 @@
          y="-126.53334"
          transform="matrix(1.089659,0,0,1.089659,7.8507405,178.52691)" />
       <rect
-         style="fill:#550000;stroke:#000000;stroke-width:0.313877;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1"
+         style="fill:#550000;stroke:#000000;stroke-width:0.313877;stroke-linecap:round;stroke-miterlimit:10;stroke-opacity:1;fill-opacity:1"
          id="rect846-2-7"
          width="15.036657"
          height="15.036659"
@@ -934,7 +945,7 @@
          style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#009db1;fill-opacity:1;stroke:none"><tspan
            x="1704.9961"
            y="931.4229"
-           id="tspan116644">21.6%</tspan></text>
+           id="tspan119026">21.6%</tspan></text>
       <text
          xml:space="preserve"
          transform="matrix(0.26458333,0,0,0.26458333,104.12215,-210.13019)"
@@ -942,7 +953,7 @@
          style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#ffcc00;fill-opacity:1;stroke:none"><tspan
            x="1704.9961"
            y="931.4229"
-           id="tspan116646">12.1%</tspan></text>
+           id="tspan119028">12.1%</tspan></text>
       <text
          xml:space="preserve"
          transform="matrix(0.26458333,0,0,0.26458333,104.12215,-193.75052)"
@@ -950,7 +961,7 @@
          style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#ff0000;fill-opacity:1;stroke:none"><tspan
            x="1704.9961"
            y="931.4229"
-           id="tspan116648">35.8%</tspan></text>
+           id="tspan119030">35.8%</tspan></text>
       <text
          xml:space="preserve"
          transform="matrix(0.26458333,0,0,0.26458333,104.12215,-177.36569)"
@@ -958,7 +969,18 @@
          style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect48806);fill:#550000;fill-opacity:1;stroke:none"><tspan
            x="1704.9961"
            y="931.4229"
-           id="tspan116650">30.4%</tspan></text>
+           id="tspan119032">30.4%</tspan></text>
     </g>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:10.5833px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="554.77069"
+       y="163.15459"
+       id="text117550"><tspan
+         sodipodi:role="line"
+         id="tspan117548"
+         style="stroke-width:0.264583"
+         x="554.77069"
+         y="163.15459" /></text>
   </g>
 </svg>

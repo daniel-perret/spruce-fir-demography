@@ -930,6 +930,123 @@ ind.mort.dat <- all.fia$TREE %>%
 
 ```
 
+
+### Seedling dataframe
+
+```{r}
+
+```{r}
+
+# making a dataframe of plot-level presence/absence for seedlings of each species on plots that have co-occurring adults
+seed <- data.frame(PLT_CN = rep(unique(ind.mort.dat$PLT_CN),each=2),
+                   SPCD = c(19,93)) %>% 
+  left_join(all.fia$SEEDLING %>% 
+              filter(SPCD %in% c(19,93),
+                     PLT_CN %in% co.pres.plots,
+                     INVYR > 2009) %>% 
+              select(PLT_CN,
+                     SPCD,
+                     CONDID,
+                     TREECOUNT),
+            by=c("PLT_CN","SPCD")) %>% 
+  group_by(PLT_CN,SPCD) %>% 
+  summarise(SEED.PRES = ifelse(sum(TREECOUNT > 0, na.rm=T), 1, 0)) %>% 
+  ungroup()
+
+# pulling conditions that contain microplots
+micr.cond <- all.fia$COND %>% 
+  filter(PLT_CN %in% seed$PLT_CN,
+         INVYR>2009) %>% 
+  summarise(fire = ifelse(DSTRBCD1 %in% 30:32 |
+                            DSTRBCD2 %in% 30:32 |
+                            DSTRBCD3 %in% 30:32, 
+                          "burned", "unburned"),
+            bda = ifelse(DSTRBCD1 %in% c(10:12,20:22) | 
+                           DSTRBCD2 %in% c(10:12,20:22) | 
+                           DSTRBCD3 %in% c(10:12,20:22),
+                         "bda", "no.bda"),
+            fire.year = case_when(DSTRBCD1 %in% 30:32 ~ DSTRBYR1,
+                                  DSTRBCD2 %in% 30:32 ~ DSTRBYR2,
+                                  DSTRBCD3 %in% 30:32 ~ DSTRBYR3),
+            bda.year = case_when(DSTRBCD1 %in% c(10:12,20:22) ~ DSTRBYR1,
+                                 DSTRBCD2 %in% c(10:12,20:22) ~ DSTRBYR2,
+                                 DSTRBCD3 %in% c(10:12,20:22) ~ DSTRBYR3),
+            disturbance = case_when(fire == "burned" & bda == "bda" ~ "fire/bda",
+                                    fire == "burned" & bda == "no.bda" ~ "fire",
+                                    fire == "unburned" & bda == "bda" ~ "bda",
+                                    fire == "unburned" & bda == "no.bda" ~"undisturbed"),
+            CONDID = CONDID,
+            PLT_CN = PLT_CN,
+            SLOPE = SLOPE,
+            ASPECT = ASPECT,
+            MICRPROP_UNADJ = MICRPROP_UNADJ) %>% 
+  filter(MICRPROP_UNADJ>0) %>% 
+  group_by(PLT_CN) %>% 
+  filter(MICRPROP_UNADJ == max(MICRPROP_UNADJ)) %>% 
+  filter(case_when(n()>1 ~ CONDID == min(CONDID),
+                   n()==1 ~ !is.na(MICRPROP_UNADJ))) %>%
+  ungroup()
+
+# attempting a disturbance severity proxy
+dist.sev <- ind.mort.dat %>% 
+  mutate(MORT = STATUSCD-PREV_STATUS_CD) %>%
+  group_by(PLT_CN,SPCD) %>% 
+  summarise(mort.prop = sum(MORT)/n(),
+            fire.sev = sum(MORT*ifelse(agent_key=="fire",1,0),na.rm=T)/n(),
+            bda.sev = sum(MORT*ifelse(agent_key%in%c("disease","insect"),1,0),na.rm=T)/n(),
+            dist.sev = sum(MORT*ifelse(agent_key%in%c("fire","disease","insect"),1,0),na.rm=T)/n())
+
+
+
+# dataframe of plot-level presence/absence of seedlings, with condition-level disturbance information and plot-level climate information and ecoregion-level disturbance and population information
+seed.dat <- seed %>% 
+  left_join(.,
+            all.fia$PLOT %>% 
+              select(PLT_CN,
+                     contains("MAT"),
+                     contains("MAP"),
+                     contains("CMD"),
+                     ECOSUBCD, REMPER,# ECO_GRP_NEW_NAM,
+                     INVYR, ELEV, most.recent) %>% 
+              mutate(MAT_anom = MAT_remper-MAT_19802010,
+                     MAP_anom = MAP_remper-MAP_19802010,
+                     CMD_anom = CMD_remper-CMD_19802010,
+                     MAP_relanom = MAP_anom/MAP_19802010),
+            by="PLT_CN") %>% 
+  left_join(micr.cond,
+            by=c("PLT_CN")) %>% 
+  left_join(mort.area.er %>% 
+              mutate(area.fire.prop = area.fire/area.total,
+                     area.id.prop = area.id/area.total),
+            by="ECOSUBCD") %>% 
+  left_join(plot.attributes.prev, by = "PLT_CN") %>% 
+  mutate(yr.since.fire = ifelse(fire == "burned",
+                                INVYR-fire.year,
+                                NA),
+         yr.since.dist = case_when(disturbance == "fire" ~ INVYR - fire.year,
+                                   disturbance == "fire/bda" ~ INVYR - fire.year,
+                                   disturbance == "bda" ~ INVYR - bda.year,
+                                   bda.year == 9999 ~ INVYR - INVYR),
+         yr.since.fire = ifelse(is.na(yr.since.fire),
+                                100, yr.since.fire),
+         yr.since.dist = ifelse(is.na(yr.since.dist),
+                                100, yr.since.dist),
+         SPCD=factor(SPCD)) %>% 
+  left_join(dist.sev,
+            by=c("PLT_CN","SPCD")) %>% 
+  mutate(fire.sev = ifelse(is.na(fire.sev),0,fire.sev),
+         bda.sev = ifelse(is.na(bda.sev),0,bda.sev),
+         dist.sev = ifelse(is.na(dist.sev),0,dist.sev),
+         mort.prop = ifelse(is.na(mort.prop),0,mort.prop)) %>% 
+  filter(!is.na(ASPECT),
+         !is.na(MAT_19802010))
+
+
+```
+
+
+```
+
 # Modeling
 
 This model predicts the individual probability of survival after 10 years (i.e., from t1 to t2) as a function of: 

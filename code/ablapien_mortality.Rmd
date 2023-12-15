@@ -911,12 +911,11 @@ ind.mort.dat <- all.fia$TREE %>%
             by="ECOSUBCD") %>% 
   left_join(plot.attributes.prev) %>% 
   left_join(dall.er.ablapien %>% 
-              select(MAP_UNIT_S, quad.baa, quad.19, quad.93, mult.comp.coexist),
+              select(MAP_UNIT_S, quad.19, quad.93, mult.comp.coexist),
             by=c("ECOSUBCD" = "MAP_UNIT_S")) %>% 
   filter(!is.na(MAT_remper),
          !is.na(MAT_19802010),
-         !is.na(PREV_BAH),
-         !is.na(quad.baa)) %>% 
+         !is.na(PREV_BAH)) %>% 
   left_join(co.cond,
             by = c("PLT_CN","CONDID")) %>% 
   # mutate(burned = ifelse(PLT_CN %in% fire.plots, 1, 0),
@@ -932,8 +931,6 @@ ind.mort.dat <- all.fia$TREE %>%
 
 
 ### Seedling dataframe
-
-```{r}
 
 ```{r}
 
@@ -995,7 +992,6 @@ dist.sev <- ind.mort.dat %>%
             fire.sev = sum(MORT*ifelse(agent_key=="fire",1,0),na.rm=T)/n(),
             bda.sev = sum(MORT*ifelse(agent_key%in%c("disease","insect"),1,0),na.rm=T)/n(),
             dist.sev = sum(MORT*ifelse(agent_key%in%c("fire","disease","insect"),1,0),na.rm=T)/n())
-
 
 
 # dataframe of plot-level presence/absence of seedlings, with condition-level disturbance information and plot-level climate information and ecoregion-level disturbance and population information

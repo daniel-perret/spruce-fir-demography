@@ -22,10 +22,10 @@ ggplot() +
           fill=NA,
           lty=2) +
   scale_fill_manual(name = "multispecies trajectory",
-                    values = c("likely persistence" = "dodgerblue2",
-                               "vulnerable" = "gold2",
-                               "mismatched trajectories" = "firebrick2",
-                               "general decline" = "firebrick4"),
+                    values = c("resilience" = "dodgerblue2",
+                               "structural change" = "gold2",
+                               "compositional change" = "firebrick2",
+                               "replacement" = "firebrick4"),
                     aesthetics = c("col","fill"))+
   lims(x = c(-2.5e6, -0.5e6),
        y = c(1.00e6,3.25e6)) +

@@ -45,15 +45,15 @@ dall.er.ablapien %>%
 
 
 dall.er.ablapien %>% 
-  ggplot(aes(x = MORT_PERC.tph_19,
+  ggplot(aes(x = MORT_PERC.tph_93,
              fill = mult.comp.coexist,
              col = mult.comp.coexist)) +
   geom_density(alpha=0.5) +
   scale_fill_manual(name = "multispecies trajectory",
-                    values = c("likely persistence" = "dodgerblue2",
-                               "vulnerable" = "gold2",
-                               "mismatched trajectories" = "firebrick2",
-                               "general decline" = "firebrick4"),
+                    values = c("resilience" = "dodgerblue2",
+                               "structural change" = "gold2",
+                               "compositional change" = "firebrick2",
+                               "replacement" = "firebrick4"),
                     aesthetics = c("col","fill"))
 
 

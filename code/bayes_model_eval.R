@@ -5,13 +5,13 @@ library(bayesplot)
 library(tidybayes)
 library(openair)
 
-# subalpine fir mortality model
+# subalpine fir mortality model-----
 
 ## checking R-hats ; all = 1.00
 summary(m19)
 
 ## checking posterior prediction distribution against data ; looks good
-m19pp <- posterior_predict(m19, ndraws=200)
+m19pp <- posterior_predict(m19, ndraws=2000)
 ppc_dens_overlay(y = m19$data$SURV,
                  yrep = m19pp, 
                  size = 2,
@@ -23,7 +23,166 @@ openair::TaylorDiagram(mydata = m19$data %>%
                          bind_cols(as.data.frame(fitted(m19))),
                        obs = "SURV",
                        mod="Estimate",
-                       type="ECOSUBCD",
-                       #group = "ECOSUBCD",
+                       #type="ECOSUBCD",
+                       #group = "ECOSUBCD", # this doesn't work for some reason?
                        normalise = T)
 
+## discrimination check
+
+m19$data %>% bind_cols(as.data.frame(fitted(m19))) %>% 
+  ggplot(.,
+         aes(x = Estimate)) +
+  geom_density(aes(fill = factor(SURV)),
+               alpha=0.5)
+
+
+# engelmann spruce mortality model -----
+ 
+## checking R-hats ; all = 1.00
+summary(m93)
+
+## checking posterior prediction distribution against data ; looks good
+m93pp <- posterior_predict(m93, ndraws=200)
+ppc_dens_overlay(y = m93$data$SURV,
+                 yrep = m93pp, 
+                 size = 2,
+                 alpha = 0.5) +
+  xlim(0,1)
+  
+## Taylor diagram
+openair::TaylorDiagram(mydata = m93$data %>% 
+                         bind_cols(as.data.frame(fitted(m93))),
+                       obs = "SURV",
+                       mod="Estimate",
+                       #type="ECOSUBCD",
+                       #group = "ECOSUBCD", # this doesn't work for some reason?
+                       normalise = T)
+
+## discrimination check
+
+m93$data %>% bind_cols(as.data.frame(fitted(m93))) %>% 
+  ggplot(.,
+         aes(x = Estimate)) +
+  geom_density(aes(fill = factor(SURV)),
+               alpha=0.5)
+
+
+# subalpine fir seedling model -----
+
+## checking R-hats ; all = 1.00
+summary(s19)
+
+## checking posterior prediction distribution against data ; looks good
+s19pp <- posterior_predict(s19, ndraws=200)
+ppc_dens_overlay(y = s19$data$SEED.PRES,
+                 yrep = s19pp, 
+                 size = 2,
+                 alpha = 0.5) +
+  xlim(0,1)
+  
+## Taylor diagram
+openair::TaylorDiagram(mydata = s19$data %>% 
+                         bind_cols(as.data.frame(fitted(s19))),
+                       obs = "SEED.PRES",
+                       mod="Estimate",
+                       #type="ECOSUBCD",
+                       #group = "ECOSUBCD", # this doesn't work for some reason?
+                       normalise = T)
+
+## discrimination check
+
+s19$data %>% bind_cols(as.data.frame(fitted(s19))) %>% 
+  ggplot(.,
+         aes(x = Estimate)) +
+  geom_density(aes(fill = factor(SEED.PRES)),
+               alpha=0.5)
+
+
+# engelmann spruce seedling model
+
+## checking R-hats ; all = 1.00
+summary(s93)
+
+## checking posterior prediction distribution against data ; looks good
+s93pp <- posterior_predict(s93, ndraws=200)
+ppc_dens_overlay(y = s93$data$SEED.PRES,
+                 yrep = s93pp, 
+                 size = 2,
+                 alpha = 0.5) +
+  xlim(0,1)
+  
+## Taylor diagram
+openair::TaylorDiagram(mydata = s93$data %>% 
+                         bind_cols(as.data.frame(fitted(s93))),
+                       obs = "SEED.PRES",
+                       mod="Estimate",
+                       #type="ECOSUBCD",
+                       #group = "ECOSUBCD", # this doesn't work for some reason?
+                       normalise = T)
+
+## discrimination check
+
+s93$data %>% bind_cols(as.data.frame(fitted(s93))) %>% 
+  ggplot(.,
+         aes(x = Estimate)) +
+  geom_density(aes(fill = factor(SEED.PRES)),
+               alpha=0.5)
+
+
+### plotting mortalityXregen densities for different categories
+
+
+p93 <- ind.mort.dat %>% 
+  filter(SPCD==93) %>% 
+  bind_cols(fitted(m93) %>% as.data.frame()) %>%
+  mutate(mort.pred=1-Estimate) %>% 
+  group_by(mult.comp.coexist,PLT_CN,SPCD,ECOSUBCD) %>% 
+  summarise(mort.pred = mean(mort.pred),
+            mean.dia = mean(PREVDIA)) %>% 
+  left_join(seed.dat %>% 
+              filter(SPCD==93) %>% 
+              bind_cols(fitted(s93) %>% as.data.frame()) %>%
+              mutate(seed.pred = Estimate) %>% 
+              select(PLT_CN,SPCD,seed.pred,ECOSUBCD),
+            by=c("PLT_CN","SPCD","ECOSUBCD")) %>% 
+  group_by(ECOSUBCD, mult.comp.coexist, SPCD) %>% 
+  summarise(seed.pred = mean(seed.pred),
+            mort.pred = mean(mort.pred)) %>% 
+  na.omit()
+
+ind.mort.dat %>% 
+  filter(SPCD==19) %>% 
+  bind_cols(mort.pred = 1-predict(m19,type="response")) %>% 
+  group_by(mult.comp.coexist,PLT_CN,SPCD,ECOSUBCD) %>% 
+  summarise(mort.pred = mean(mort.pred),
+            mean.dia = mean(PREVDIA)) %>% 
+  left_join(seed.dat %>% 
+              filter(SPCD==19) %>% 
+              bind_cols(seed.pred = predict(s19,type="response")) %>% 
+              select(PLT_CN,SPCD,seed.pred,ECOSUBCD),
+            by=c("PLT_CN","SPCD","ECOSUBCD")) %>% 
+  group_by(ECOSUBCD, mult.comp.coexist, SPCD) %>% 
+  summarise(seed.pred = mean(seed.pred),
+            mort.pred = mean(mort.pred)) %>% 
+  na.omit() %>%
+  ggplot(.,
+         aes(x=mort.pred,
+             y = seed.pred,
+             col = SPCD,
+             bg = SPCD)) +
+  geom_point(alpha=0.2,pch=21)+
+  geom_density_2d(lwd=0.75) +
+  geom_point(data=p93,alpha=0.2,pch=21)+
+  geom_density_2d(data=p93,lwd=0.75) +
+  facet_wrap(facets=~factor(mult.comp.coexist, 
+                            levels=c("likely persistence",
+                                     "vulnerable",
+                                     "mismatched trajectories",
+                                     "general decline")),
+             ncol=1) +
+  labs(x = "Predicted probability of mortality",
+       y = "Predicted probability of regeneration") +
+  scale_color_manual(name = "Species",
+                     values = c("19" = "dodgerblue3",
+                                "93" = "firebrick2"),
+                     aesthetics = c("col","bg"))

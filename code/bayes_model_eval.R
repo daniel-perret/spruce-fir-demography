@@ -17,7 +17,7 @@ ppc_dens_overlay(y = m19$data$SURV,
                  size = 2,
                  alpha = 0.5) +
   xlim(0,1)
-  
+
 ## Taylor diagram
 openair::TaylorDiagram(mydata = m19$data %>% 
                          bind_cols(as.data.frame(fitted(m19))),
@@ -37,7 +37,7 @@ m19$data %>% bind_cols(as.data.frame(fitted(m19))) %>%
 
 
 # engelmann spruce mortality model -----
- 
+
 ## checking R-hats ; all = 1.00
 summary(m93)
 
@@ -48,7 +48,7 @@ ppc_dens_overlay(y = m93$data$SURV,
                  size = 2,
                  alpha = 0.5) +
   xlim(0,1)
-  
+
 ## Taylor diagram
 openair::TaylorDiagram(mydata = m93$data %>% 
                          bind_cols(as.data.frame(fitted(m93))),
@@ -79,7 +79,7 @@ ppc_dens_overlay(y = s19$data$SEED.PRES,
                  size = 2,
                  alpha = 0.5) +
   xlim(0,1)
-  
+
 ## Taylor diagram
 openair::TaylorDiagram(mydata = s19$data %>% 
                          bind_cols(as.data.frame(fitted(s19))),
@@ -110,7 +110,7 @@ ppc_dens_overlay(y = s93$data$SEED.PRES,
                  size = 2,
                  alpha = 0.5) +
   xlim(0,1)
-  
+
 ## Taylor diagram
 openair::TaylorDiagram(mydata = s93$data %>% 
                          bind_cols(as.data.frame(fitted(s93))),
@@ -152,13 +152,15 @@ p93 <- ind.mort.dat %>%
 
 ind.mort.dat %>% 
   filter(SPCD==19) %>% 
-  bind_cols(mort.pred = 1-predict(m19,type="response")) %>% 
+  bind_cols(fitted(m19) %>% as.data.frame()) %>%
+  mutate(mort.pred=1-Estimate) %>% 
   group_by(mult.comp.coexist,PLT_CN,SPCD,ECOSUBCD) %>% 
   summarise(mort.pred = mean(mort.pred),
             mean.dia = mean(PREVDIA)) %>% 
   left_join(seed.dat %>% 
               filter(SPCD==19) %>% 
-              bind_cols(seed.pred = predict(s19,type="response")) %>% 
+              bind_cols(fitted(s19) %>% as.data.frame()) %>%
+              mutate(seed.pred = Estimate) %>%               
               select(PLT_CN,SPCD,seed.pred,ECOSUBCD),
             by=c("PLT_CN","SPCD","ECOSUBCD")) %>% 
   group_by(ECOSUBCD, mult.comp.coexist, SPCD) %>% 
@@ -175,10 +177,10 @@ ind.mort.dat %>%
   geom_point(data=p93,alpha=0.2,pch=21)+
   geom_density_2d(data=p93,lwd=0.75) +
   facet_wrap(facets=~factor(mult.comp.coexist, 
-                            levels=c("likely persistence",
-                                     "vulnerable",
-                                     "mismatched trajectories",
-                                     "general decline")),
+                            levels=c("resilience",
+                                     "structural change",
+                                     "compositional change",
+                                     "replacement")),
              ncol=1) +
   labs(x = "Predicted probability of mortality",
        y = "Predicted probability of regeneration") +
@@ -186,3 +188,4 @@ ind.mort.dat %>%
                      values = c("19" = "dodgerblue3",
                                 "93" = "firebrick2"),
                      aesthetics = c("col","bg"))
++

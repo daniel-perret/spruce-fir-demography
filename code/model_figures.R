@@ -206,6 +206,78 @@ p.co %>%
 
 
 
+## version of the density figure with size dots for fire----
+
+
+p93 <- ind.mort.dat %>% 
+  filter(SPCD==93) %>% 
+  bind_cols(fitted(m93) %>% as.data.frame()) %>%
+  mutate(mort.pred=1-Estimate) %>% 
+  group_by(mult.comp.coexist,PLT_CN,SPCD,ECOSUBCD) %>% 
+  summarise(mort.pred = mean(mort.pred,na.rm=T),
+            mean.dia = mean(PREVDIA),
+            area.fire = mean(area.fire.prop),
+            area.id = mean(area.id.prop)) %>% 
+  left_join(seed.dat %>% 
+              filter(SPCD==93) %>% 
+              bind_cols(fitted(s93) %>% as.data.frame()) %>%
+              mutate(seed.pred = Estimate) %>% 
+              select(PLT_CN,SPCD,seed.pred,ECOSUBCD),
+            by=c("PLT_CN","SPCD","ECOSUBCD")) %>% 
+  group_by(ECOSUBCD, mult.comp.coexist, SPCD) %>% 
+  summarise(seed.pred = mean(seed.pred,na.rm=T),
+            mort.pred = mean(mort.pred,na.rm=T),
+            area.fire = mean(area.fire),
+            area.id = mean(area.id)) %>% 
+  na.omit()
+
+p19 <- ind.mort.dat %>% 
+  filter(SPCD==19) %>% 
+  bind_cols(fitted(m19) %>% as.data.frame()) %>%
+  mutate(mort.pred=1-Estimate) %>% 
+  group_by(mult.comp.coexist,PLT_CN,SPCD,ECOSUBCD) %>% 
+  summarise(mort.pred = mean(mort.pred,na.rm=T),
+            mean.dia = mean(PREVDIA),
+            area.fire = mean(area.fire.prop),
+            area.id = mean(area.id.prop)) %>% 
+  left_join(seed.dat %>% 
+              filter(SPCD==19) %>% 
+              bind_cols(fitted(s19) %>% as.data.frame()) %>%
+              mutate(seed.pred = Estimate) %>%               
+              select(PLT_CN,SPCD,seed.pred,ECOSUBCD),
+            by=c("PLT_CN","SPCD","ECOSUBCD")) %>% 
+  group_by(ECOSUBCD, mult.comp.coexist, SPCD) %>% 
+  summarise(seed.pred = mean(seed.pred,na.rm=T),
+            mort.pred = mean(mort.pred,na.rm=T),
+            area.fire = mean(area.fire),
+            area.id = mean(area.id)) %>%
+  na.omit()
+
+ggplot(p19,
+       aes(x=mort.pred,
+           y = seed.pred,
+           col = SPCD,
+           bg = SPCD,
+           size = area.fire)) +
+  geom_point(alpha=0.2,pch=21)+
+  geom_density_2d(lwd=0.75) +
+  geom_point(data=p93,alpha=0.2,pch=21)+
+  geom_density_2d(data=p93,lwd=0.75) +
+  facet_wrap(facets=~factor(mult.comp.coexist, 
+                            levels=c("resilience",
+                                     "structural change",
+                                     "compositional change",
+                                     "replacement")),
+             ncol=1) +
+  labs(x = "Predicted probability of mortality",
+       y = "Predicted probability of regeneration") +
+  scale_color_manual(name = "Species",
+                     values = c("19" = "dodgerblue3",
+                                "93" = "firebrick2"),
+                     aesthetics = c("col","bg"))
+
+
+
 
 
 

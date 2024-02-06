@@ -70,14 +70,14 @@ typeDomain_grow_dlp.metric <- function(db, treeType, landType, sizeThresh, evals
              STATUSCD==2 & PREV_STATUS_CD==1 & DIA<sizeThresh ~ "MORTALITY0",
              
              STATUSCD==1 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA>=sizeThresh & DIA<12.7 ~ "INGROWTH1",
-             STATUSCD==1 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA>=sizeThresh & DIA>=12.7 ~ "INGROWTH2",
+             STATUSCD==1 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA>=sizeThresh & DIA>=12.7 ~ "INGROWTH1", ##5FEB24 MOD FROM INGROWTH2
              STATUSCD==1 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA<sizeThresh ~ "INGROWTH0",
              STATUSCD==2 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA>=sizeThresh ~ "MORTALITY2",
              STATUSCD==2 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA<sizeThresh ~ "MORTALITY0",
              
              # reconciled trees
              RECONCILECD==1 & STATUSCD==1 & DIA>=sizeThresh & DIA<12.7 ~ "INGROWTH1",
-             RECONCILECD==1 & STATUSCD==1 & DIA>=sizeThresh & DIA>=12.7 ~ "INGROWTH2",
+             RECONCILECD==1 & STATUSCD==1 & DIA>=sizeThresh & DIA>=12.7 ~ "INGROWTH1", ##5FEB24 MOD FROM INGROWTH2
              RECONCILECD==1 & STATUSCD==1 & DIA<sizeThresh ~ "INGROWTH0",
              RECONCILECD==1 & STATUSCD==2 & DIA>=sizeThresh ~ "MORTALITY2",
              RECONCILECD==1 & STATUSCD==2 & DIA<sizeThresh ~ "MORTALITY0",
@@ -97,6 +97,7 @@ typeDomain_grow_dlp.metric <- function(db, treeType, landType, sizeThresh, evals
            ),
            
            TPARECR_UNADJ = ifelse(reCOMPONENT %in% c("INGROWTH1",
+                                                     #"INGROWTH2", ##  MODIFIED 5 FEB 2024, ADDED INGROWTH2 TO COUNT ONGROWTH!
                                                      "SURVIVOR2"
                                                      #"MORTALITY2"
            ), 
@@ -711,7 +712,7 @@ growMortStarter_dlp.metric <- function(x,
         dplyr::mutate(EVAL_TYP = list(c('GROW', 'MORT', 'REMV'))) %>%
         dplyr::select(PLT_CN, EVAL_TYP, TREE_BASIS, AREA_BASIS,
                       !!!grpSyms, CONDID, SUBP, TREE,
-                      REMPER,
+                      #REMPER,
                       RECR_TPA = rPlot,
                       MORT_TPA = mPlot,
                       REMV_TPA = hPlot,

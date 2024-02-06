@@ -201,6 +201,56 @@ ggpredict(m19, terms = c("MAT_anom [0:2,by=0.1]",
   
   
   
-  
+# PLAYING WITH SAPLING RECRUITMENT
+
+sapling <- all.fia %>% 
+  growMort_dlp.metric(db = .,
+                      stateVar = "TPA",
+                      byPlot = T,
+                      treeDomain = DIA<12.7, # DBH in cm
+                      grpBy=SPCD,
+                      totals = TRUE,
+                      nCores = 4,
+                      sizeThresh=1,
+                      evals = evals,
+                      method="TI") %>%
+  filter(SPCD%in%c(19,93)) %>% 
+  group_by(PLT_CN, SPCD) %>% 
+  filter(YEAR==max(YEAR),
+         PLT_CN%in%co.pres.plots)  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   
   

@@ -68,7 +68,7 @@ ADULT (DBH>12.7) RECRUITMENT --> ONLY SUBPLOT DATA
 ```{r}
 thresh <- 12.7
 
-dtpa.plot <- growMort_dlp.metric(db = all.fia,
+dtpa.plot2 <- growMort_dlp.metric(db = all.fia,
                                   stateVar = "TPA",
                                   byPlot = TRUE,
                                   grpBy = SPCD,
@@ -81,7 +81,7 @@ dtpa.plot <- growMort_dlp.metric(db = all.fia,
                                   treeList = F)
 
 
-dtpa.plot.sp <- dtpa.plot %>% 
+dtpa.plot.sp2 <- dtpa.plot2 %>% 
   filter(SPCD %in% c(19,93))
 
 
@@ -105,7 +105,68 @@ counts <- all.fia$TREE %>%
 
 ```
 
+SAPLING PRESENCE DATA
 
+```{r}
+
+sap <- data.frame(PLT_CN = rep(unique(ind.mort.dat$PLT_CN),each=2),
+                  SPCD=c(19,93)) %>% 
+  left_join(all.fia$TREE %>% 
+              filter(SPCD %in% c(19,93),
+                     DIA < 12.7,
+                     is.na(PREV_TRE_CN),  # ONLY NEW SAPLINGS
+                     PLT_CN %in% co.pres.plots,
+                     INVYR > 2009) %>% 
+              group_by(PLT_CN, SPCD) %>% 
+              summarise(sap_count = n()),
+            by = c("PLT_CN","SPCD")) %>% 
+  mutate(sap_count = ifelse(is.na(sap_count),0,sap_count),
+         sap_pres = ifelse(sap_count>0,1,sap_count))
+
+sap.dat <- sap %>% 
+  left_join(.,
+            all.fia$PLOT %>% 
+              select(PLT_CN,
+                     contains("MAT"),
+                     contains("MAP"),
+                     contains("CMD"),
+                     ECOSUBCD, REMPER,# ECO_GRP_NEW_NAM,
+                     INVYR, ELEV, most.recent) %>% 
+              mutate(MAT_anom = MAT_remper-MAT_19802010,
+                     MAP_anom = MAP_remper-MAP_19802010,
+                     CMD_anom = CMD_remper-CMD_19802010,
+                     MAP_relanom = MAP_anom/MAP_19802010),
+            by="PLT_CN") %>% 
+  left_join(micr.cond,
+            by=c("PLT_CN")) %>% 
+  left_join(mort.area.er %>% 
+              mutate(area.fire.prop = area.fire/area.total,
+                     area.id.prop = area.id/area.total),
+            by="ECOSUBCD") %>% 
+  left_join(plot.attributes.prev, by = "PLT_CN") %>% 
+  mutate(yr.since.fire = ifelse(fire == "burned",
+                                INVYR-fire.year,
+                                NA),
+         yr.since.dist = case_when(disturbance == "fire" ~ INVYR - fire.year,
+                                   disturbance == "fire/bda" ~ INVYR - fire.year,
+                                   disturbance == "bda" ~ INVYR - bda.year,
+                                   bda.year == 9999 ~ INVYR - INVYR),
+         yr.since.fire = ifelse(is.na(yr.since.fire),
+                                100, yr.since.fire),
+         yr.since.dist = ifelse(is.na(yr.since.dist),
+                                100, yr.since.dist),
+         SPCD=factor(SPCD)) %>% 
+  left_join(dist.sev,
+            by=c("PLT_CN","SPCD")) %>% 
+  mutate(fire.sev = ifelse(is.na(fire.sev),0,fire.sev),
+         bda.sev = ifelse(is.na(bda.sev),0,bda.sev),
+         dist.sev = ifelse(is.na(dist.sev),0,dist.sev),
+         mort.prop = ifelse(is.na(mort.prop),0,mort.prop)) %>% 
+  filter(!is.na(ASPECT),
+         !is.na(MAT_19802010))
+
+
+```
 
 
 

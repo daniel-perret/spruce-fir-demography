@@ -70,14 +70,14 @@ typeDomain_grow_dlp.metric <- function(db, treeType, landType, sizeThresh, evals
              STATUSCD==2 & PREV_STATUS_CD==1 & DIA<sizeThresh ~ "MORTALITY0",
              
              STATUSCD==1 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA>=sizeThresh & DIA<12.7 ~ "INGROWTH1",
-             STATUSCD==1 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA>=sizeThresh & DIA>=12.7 ~ "INGROWTH1", ##5FEB24 MOD FROM INGROWTH2
+             STATUSCD==1 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA>=sizeThresh & DIA>=12.7 ~ "INGROWTH2", ##5FEB24 MOD FROM INGROWTH2
              STATUSCD==1 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA<sizeThresh ~ "INGROWTH0",
              STATUSCD==2 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA>=sizeThresh ~ "MORTALITY2",
              STATUSCD==2 & is.na(PREV_STATUS_CD) & RECONCILECD==0 & DIA<sizeThresh ~ "MORTALITY0",
              
              # reconciled trees
              RECONCILECD==1 & STATUSCD==1 & DIA>=sizeThresh & DIA<12.7 ~ "INGROWTH1",
-             RECONCILECD==1 & STATUSCD==1 & DIA>=sizeThresh & DIA>=12.7 ~ "INGROWTH1", ##5FEB24 MOD FROM INGROWTH2
+             RECONCILECD==1 & STATUSCD==1 & DIA>=sizeThresh & DIA>=12.7 ~ "INGROWTH2", ##5FEB24 MOD FROM INGROWTH2
              RECONCILECD==1 & STATUSCD==1 & DIA<sizeThresh ~ "INGROWTH0",
              RECONCILECD==1 & STATUSCD==2 & DIA>=sizeThresh ~ "MORTALITY2",
              RECONCILECD==1 & STATUSCD==2 & DIA<sizeThresh ~ "MORTALITY0",

@@ -223,10 +223,22 @@ sapling <- all.fia %>%
 
 
 
+# exploratory sapling plots
 
+sap.dat %>% 
+  ggplot(.) + 
+  geom_boxplot(aes(x = factor(SPCD),
+                   #group = factor(sap_pres),
+                   fill = factor(sap_pres),
+                   y = MORT_PERC))
 
-
-
+sap.dat %>% 
+  ggplot(.) +
+  geom_point(aes(x = CURR_BAH,
+                  y = sap_count,
+                  col = factor(SPCD)),
+             alpha=0.7,
+             size=3)
 
 
 

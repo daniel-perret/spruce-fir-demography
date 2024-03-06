@@ -230,22 +230,68 @@ sap.dat %>%
   geom_boxplot(aes(x = factor(SPCD),
                    #group = factor(sap_pres),
                    fill = factor(sap_pres),
-                   y = MORT_PERC))
+                   y = MAP_anom))
 
 sap.dat %>% 
   ggplot(.) +
-  geom_point(aes(x = CURR_BAH,
-                  y = sap_count,
-                  col = factor(SPCD)),
+  geom_point(aes(x = MAT_remper_mean,
+                  y = MAT_remper_max),
              alpha=0.7,
-             size=3)
+             size=3) +
+  geom_abline(intercept=0,slope=1,col="red")
+
+sap.dat %>% 
+  ggplot(.) +
+  geom_density(aes(x = fire.sev,
+                   fill = factor(sap_pres)),
+               alpha = 0.4) +
+  facet_wrap(facets = ~SPCD)
+
+
+seed.dat %>% 
+  ggplot(.) +
+  geom_density(aes(x = area.fire.prop,
+                   fill = factor(SEED.PRES)),
+               alpha = 0.4) +
+  facet_wrap(facets = ~SPCD)
 
 
 
 
+s19.2 <- glmer(data = seed.dat %>% 
+                 filter(SPCD==19) %>% 
+                 mutate(MAT_maxanom = MAT_remper_max-MAT_19802010,
+                        CMD_maxanomrel = (CMD_remper_max-CMD_base_mean)/CMD_base_mean),
+               formula = SEED.PRES ~
+                 scale(MAT_maxanom)*scale(CMD_maxanomrel)*scale(MWMT_remper_max)*
+                 scale(MAT_19802010)*scale(MAP_19802010)*(fire.sev) + 
+                 (1|ECOSUBCD),
+               family = binomial(link="logit"),
+               nAGQ=0,
+               control = glmerControl(optim = "nlminbwrap"))
+summary(s19.2)
+performance(s19.2)
+
+
+s93.2 <- glmer(data = seed.dat %>% 
+                 filter(SPCD==93) %>% 
+                 mutate(MAT_maxanom = MAT_remper_max-MAT_19802010,
+                        CMD_maxanomrel = (CMD_remper_max-CMD_base_mean)/CMD_base_mean),
+               formula = SEED.PRES ~
+                 scale(MAT_maxanom)*scale(CMD_maxanomrel)*scale(MWMT_remper_max)*
+                 scale(MAT_19802010)*scale(MAP_19802010)*fire.sev + 
+                 (1|ECOSUBCD),
+               family = binomial(link="logit"),
+               nAGQ=0,
+               control = glmerControl(optim = "nlminbwrap"))
+summary(s93.2)
+performance(s93.2)
 
 
 
+
+#2786
+#2521
 
 
 

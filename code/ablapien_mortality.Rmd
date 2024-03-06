@@ -311,35 +311,37 @@ er2.co <- er2[co.pres.sp,]
 ## Climate data
 
 ```{r climate.data, echo=T}
-# 
-# # reading in 1981 - 2010 climate normals, downloaded from ClimateNA
-# clim.norms <- read.csv("D:/coords_format_Normal_1981_2010Y.csv", header=T) %>% 
-#   select(PLT_CN=ID1,
-#          MAT,
-#          MAP,
-#          DD5,
-#          CMD,
-#          CMI,
-#          FFP) %>% 
-#   mutate(MAT = ifelse(MAT==-9999, NA_real_, MAT))
-# 
-# # reading in 1901-2021 climate timeseries, downloaded from ClimateNA
+
+# reading in 1981 - 2010 climate normals, downloaded from ClimateNA
+clim.norms <- read.csv("D:/coords_format_Normal_1981_2010Y.csv", header=T) %>%
+  select(PLT_CN=ID1,
+         MAT,
+         MAP,
+         DD5,
+         CMD,
+         CMI,
+         FFP) %>%
+  mutate(MAT = ifelse(MAT==-9999, NA_real_, MAT))
+
+# reading in 1901-2021 climate timeseries, downloaded from ClimateNA
 # clim.ann <- read.csv("D:/coords_format_1901-2021Y.csv", header=T)
 # 
 # # summarizing climate variables to match the remeasurement period of all FIA plots
 # clim.remper <- clim.ann %>%
 #   select(PLT_CN=ID1,
-#          Year, 7:31) %>% 
-#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>% 
-#   left_join(all.fia$PLOT %>% 
+#          Year, 7:31) %>%
+#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
+#   left_join(all.fia$PLOT %>%
 #               mutate(REMPER_END = MEASYEAR,
-#                      REMPER_START = MEASYEAR-round(REMPER,digits=0)) %>% 
-#               select(PLT_CN, REMPER_END, REMPER_START)) %>% 
+#                      REMPER_START = MEASYEAR-round(REMPER,digits=0)) %>%
+#               select(PLT_CN, REMPER_END, REMPER_START)) %>%
 #   mutate(REMPER_START = ifelse(is.na(REMPER_START), REMPER_END, REMPER_START),
 #          across(3:27, .fns = ~ifelse(Year %in% c(REMPER_START:REMPER_END), .x, NA_real_))) %>%
-#   group_by(PLT_CN) %>% 
-#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names="{.col}_remper"))
-# 
+#   group_by(PLT_CN) %>%
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names="{.col}_remper_mean"),
+#             across(MAT:DD1040, ~max(.x,na.rm=T), .names="{.col}_remper_max"),
+#             across(MAT:DD1040, ~min(.x,na.rm=T), .names="{.col}_remper_min"))
+
 # summarizing climate variables for a "baseline" period 1900-1950
 # clim.base <- clim.ann %>%
 #   select(PLT_CN=ID1,
@@ -347,7 +349,9 @@ er2.co <- er2[co.pres.sp,]
 #   filter(Year %in% 1950:1980) %>%
 #   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
 #   group_by(PLT_CN) %>%
-#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names = "{.col}_base"))
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names = "{.col}_base_mean"),
+#             across(MAT:DD1040, ~max(.x,na.rm=T), .names="{.col}_base_max"),
+#             across(MAT:DD1040, ~min(.x,na.rm=T), .names="{.col}_base_min"))
 # 
 # # summarizing climate variables for a "recent" period 2010-2021
 # clim.recent <- clim.ann %>%
@@ -356,20 +360,41 @@ er2.co <- er2[co.pres.sp,]
 #   filter(Year %in% 2010:2021) %>%
 #   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
 #   group_by(PLT_CN) %>%
-#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names = "{.col}_recent"))
-# 
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names = "{.col}_recent_mean"),
+#             across(MAT:DD1040, ~max(.x,na.rm=T), .names="{.col}_recent_max"),
+#             across(MAT:DD1040, ~min(.x,na.rm=T), .names="{.col}_recent_min"))
 
-#write.csv(clim.norms, file = "data/clim_norms.csv", row.names = F)
-#write.csv(clim.base, file = "data/clim_base.csv", row.names = F)
-#write.csv(clim.remper, file = "data/clim_remper.csv", row.names = F)
-#write.csv(clim.recent, file = "data/clim_recent.csv", row.names = F)
+# experimental bit grabbing just the three years before remeasurement
+clim.surv <- clim.ann %>%
+  select(PLT_CN=ID1,
+         Year, 7:31) %>%
+  mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
+  left_join(all.fia$PLOT %>%
+              mutate(REMPER_END = MEASYEAR,
+                     REMPER_START = MEASYEAR-round(REMPER,digits=0)) %>%
+              select(PLT_CN, REMPER_END, REMPER_START)) %>%
+  mutate(REMPER_START = ifelse(is.na(REMPER_START), REMPER_END, REMPER_START),
+         across(3:27, .fns = ~ifelse(Year %in% c((REMPER_END-2):REMPER_END), .x, NA_real_))) %>%
+  group_by(PLT_CN) %>%
+  summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names="{.col}_surv_mean"),
+            across(MAT:DD1040, ~max(.x,na.rm=T), .names="{.col}_surv_max"),
+            across(MAT:DD1040, ~min(.x,na.rm=T), .names="{.col}_surv_min"))
+
+
+# #write.csv(clim.norms, file = "data/clim_norms.csv", row.names = F)
+# write.csv(clim.base, file = "data/clim_base2.csv", row.names = F)
+# write.csv(clim.remper, file = "data/clim_remper2.csv", row.names = F)
+# write.csv(clim.recent, file = "data/clim_recent2.csv", row.names = F)
+ write.csv(clim.surv, file = "data/clim_surv.csv", row.names = F)
+
 
 ## Only re-run climate processing code if something needs to be changed! It takes forever to run!
 
 clim.norms <- read.csv("data/clim_norms.csv",header=T,stringsAsFactors=F)
-clim.base <- read.csv("data/clim_base.csv", header=T, stringsAsFactors=F)
-clim.remper <- read.csv("data/clim_remper.csv",header=T,stringsAsFactors=F)
-clim.recent <- read.csv("data/clim_recent.csv",header=T,stringsAsFactors=F)
+clim.base <- read.csv("data/clim_base2.csv", header=T, stringsAsFactors=F)
+clim.remper <- read.csv("data/clim_remper2.csv",header=T,stringsAsFactors=F)
+clim.recent <- read.csv("data/clim_recent2.csv",header=T,stringsAsFactors=F)
+clim.surv <- read.csv("data/clim_surv.csv",header=T,stringsAsFactors=F)
 
 # joining climate variables to FIA plots
 all.fia$PLOT <- all.fia$PLOT %>% 
@@ -380,10 +405,14 @@ all.fia$PLOT <- all.fia$PLOT %>%
   left_join(clim.base,
             by="PLT_CN") %>%
   left_join(clim.recent,
+            by="PLT_CN") %>%
+  left_join(clim.surv,
             by="PLT_CN") %>% 
   mutate(REMPER_END = MEASYEAR,
-         REMPER_START = MEASYEAR-round(REMPER,digits=0),
-         REMPER_PER = length(REMPER_START:REMPER_END))
+         REMPER_START = MEASYEAR-round(REMPER,digits=0)) %>%
+  group_by(PLT_CN) %>%
+  mutate(REMPER_PER = length(REMPER_START:REMPER_END)) %>%
+  ungroup()
 
 
 ###### CLIMNA raster data
@@ -897,11 +926,14 @@ ind.mort.dat <- all.fia$TREE %>%
                      contains("MAT"),
                      contains("MAP"),
                      contains("CMD"),
-                     ECOSUBCD, REMPER, #ECO_GRP_NEW_NAM,
+                     # contains("EXT"),
+                     # contains("EMT"),
+                     contains("MWMT"),
+                     ECOSUBCD, REMPER,
                      INVYR, ELEV, most.recent) %>% 
-              mutate(MAT_anom = MAT_recent-MAT_19802010,
-                     MAP_anom = MAP_recent-MAP_19802010,
-                     CMD_anom = CMD_recent-CMD_19802010,
+              mutate(MAT_anom = MAT_recent_mean-MAT_19802010,
+                     MAP_anom = MAP_recent_mean-MAP_19802010,
+                     CMD_anom = CMD_recent_mean-CMD_19802010,
                      MAP_relanom = MAP_anom/MAP_19802010,
                      CMD_relanom = CMD_anom/CMD_19802010),
             by="PLT_CN") %>%
@@ -913,7 +945,7 @@ ind.mort.dat <- all.fia$TREE %>%
   left_join(dall.er.ablapien %>% 
               select(MAP_UNIT_S, quad.19, quad.93, mult.comp.coexist),
             by=c("ECOSUBCD" = "MAP_UNIT_S")) %>% 
-  filter(!is.na(MAT_remper),
+  filter(!is.na(MAT_remper_mean),
          !is.na(MAT_19802010),
          !is.na(PREV_BAH)) %>% 
   left_join(co.cond,
@@ -1002,11 +1034,14 @@ seed.dat <- seed %>%
                      contains("MAT"),
                      contains("MAP"),
                      contains("CMD"),
-                     ECOSUBCD, REMPER,# ECO_GRP_NEW_NAM,
+                     #contains("EXT"),
+                     #contains("EMT"),
+                     contains("MWMT"),
+                     ECOSUBCD, REMPER,
                      INVYR, ELEV, most.recent) %>% 
-              mutate(MAT_anom = MAT_remper-MAT_19802010,
-                     MAP_anom = MAP_remper-MAP_19802010,
-                     CMD_anom = CMD_remper-CMD_19802010,
+              mutate(MAT_anom = MAT_remper_mean-MAT_19802010,
+                     MAP_anom = MAP_remper_mean-MAP_19802010,
+                     CMD_anom = CMD_remper_mean-CMD_19802010,
                      MAP_relanom = MAP_anom/MAP_19802010),
             by="PLT_CN") %>% 
   left_join(micr.cond,

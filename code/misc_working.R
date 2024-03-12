@@ -176,10 +176,10 @@ try %>%
 
 
 ggpredict(m19, terms = c("MAT_anom [0:2,by=0.1]",
-                        "MAT_19802010[0,3,6]",
-                        "PREVDIA [5, 11, 30]"),
-         condition = c(area.fire.prop = 0, 
-                       area.id.prop = 0)) %>% 
+                         "MAT_19802010[0,3,6]",
+                         "PREVDIA [5, 11, 30]"),
+          condition = c(area.fire.prop = 0, 
+                        area.id.prop = 0)) %>% 
   as.data.frame() %>% 
   ggplot(.,
          aes(x = x,
@@ -198,9 +198,9 @@ ggpredict(m19, terms = c("MAT_anom [0:2,by=0.1]",
   labs(x = "MAT anomaly",
        y = "Predicted mortality") +
   facet_grid(facets = ~facet)
-  
-  
-  
+
+
+
 # PLAYING WITH SAPLING RECRUITMENT
 
 sapling <- all.fia %>% 
@@ -235,14 +235,14 @@ sap.dat %>%
 sap.dat %>% 
   ggplot(.) +
   geom_point(aes(x = MAT_remper_mean,
-                  y = MAT_remper_max),
+                 y = MAT_remper_max),
              alpha=0.7,
              size=3) +
   geom_abline(intercept=0,slope=1,col="red")
 
 sap.dat %>% 
   ggplot(.) +
-  geom_density(aes(x = fire.sev,
+  geom_density(aes(x = MAT_ref_mean,
                    fill = factor(sap_pres)),
                alpha = 0.4) +
   facet_wrap(facets = ~SPCD)
@@ -250,21 +250,25 @@ sap.dat %>%
 
 seed.dat %>% 
   ggplot(.) +
-  geom_density(aes(x = area.fire.prop,
+  geom_density(aes(x = MAP_ref_mean,
                    fill = factor(SEED.PRES)),
                alpha = 0.4) +
   facet_wrap(facets = ~SPCD)
 
-
+ind.mort.dat %>% 
+  ggplot(.) +
+  geom_density(aes(x = MAT_maxanom,
+                   fill = factor(SURV)),
+               alpha = 0.4) +
+  facet_wrap(facets = ~SPCD)
 
 
 s19.2 <- glmer(data = seed.dat %>% 
-                 filter(SPCD==19) %>% 
-                 mutate(MAT_maxanom = MAT_remper_max-MAT_19802010,
-                        CMD_maxanomrel = (CMD_remper_max-CMD_base_mean)/CMD_base_mean),
+                 filter(SPCD==19),
                formula = SEED.PRES ~
-                 scale(MAT_maxanom)*scale(CMD_maxanomrel)*scale(MWMT_remper_max)*
-                 scale(MAT_19802010)*scale(MAP_19802010)*(fire.sev) + 
+                 (MAT_maxanom.z)*(CMD_maxanom.z)*
+                 scale(MAT_ref_mean)*scale(MAP_ref_mean)*(fire.sev)*(bda.sev) + 
+                 scale(PREV_BAH) +
                  (1|ECOSUBCD),
                family = binomial(link="logit"),
                nAGQ=0,
@@ -272,14 +276,12 @@ s19.2 <- glmer(data = seed.dat %>%
 summary(s19.2)
 performance(s19.2)
 
-
 s93.2 <- glmer(data = seed.dat %>% 
-                 filter(SPCD==93) %>% 
-                 mutate(MAT_maxanom = MAT_remper_max-MAT_19802010,
-                        CMD_maxanomrel = (CMD_remper_max-CMD_base_mean)/CMD_base_mean),
+                 filter(SPCD==93),
                formula = SEED.PRES ~
-                 scale(MAT_maxanom)*scale(CMD_maxanomrel)*scale(MWMT_remper_max)*
-                 scale(MAT_19802010)*scale(MAP_19802010)*fire.sev + 
+                 (MAT_maxanom.z)*(CMD_maxanom.z)*
+                 scale(MAT_ref_mean)*scale(MAP_ref_mean)*(fire.sev)*(bda.sev) +
+                 scale(PREV_BAH)+ 
                  (1|ECOSUBCD),
                family = binomial(link="logit"),
                nAGQ=0,
@@ -288,27 +290,37 @@ summary(s93.2)
 performance(s93.2)
 
 
+r19 <- glmer(data = sap.dat %>% 
+               filter(SPCD==19),
+             formula = SAP.PRES ~
+               (MAT_maxanom.z)*(CMD_maxanom.z)*
+               scale(MAT_ref_mean)*scale(MAP_ref_mean)*
+               (fire.sev)*(bda.sev) + 
+               #scale(PREV_BAH) +
+               (1|ECOSUBCD),
+             family = binomial(link="logit"),
+             nAGQ=0,
+             control = glmerControl(optim = "nlminbwrap"))
+summary(r19)
+performance(r19)
+
+r93 <- glmer(data = sap.dat %>% 
+               filter(SPCD==93),
+             formula = sap_pres ~
+               (MAT_maxanom.z)*(CMD_maxanom.z)*
+               scale(MAT_ref_mean)*scale(MAP_ref_mean)*
+               (fire.sev)*(bda.sev) + 
+               #scale(PREV_BAH) +
+               (1|ECOSUBCD),
+             family = binomial(link="logit"),
+             nAGQ=0,
+             control = glmerControl(optim = "nlminbwrap"))
+summary(r93)
+performance(r93)
 
 
-#2786
-#2521
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  

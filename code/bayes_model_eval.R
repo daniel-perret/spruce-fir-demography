@@ -5,6 +5,17 @@ library(bayesplot)
 library(tidybayes)
 library(openair)
 
+#load models
+
+load("data/m19v5.Rdata")
+load("data/s19v6.Rdata")
+load("data/r19v6.Rdata")
+load("data/m93v5.Rdata")
+load("data/s93v6.Rdata")
+load("data/r93v6.Rdata")
+
+
+
 # subalpine fir mortality model-----
 
 ## checking R-hats ; all = 1.00

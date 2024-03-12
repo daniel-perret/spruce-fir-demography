@@ -121,8 +121,8 @@ sap <- data.frame(PLT_CN = rep(unique(ind.mort.dat$PLT_CN),each=2),
               group_by(PLT_CN, SPCD) %>% 
               summarise(sap_count = n()),
             by = c("PLT_CN","SPCD")) %>% 
-  mutate(sap_count = ifelse(is.na(sap_count),0,sap_count),
-         sap_pres = ifelse(sap_count>0,1,sap_count))
+  mutate(SAP.COUNT = ifelse(is.na(sap_count),0,sap_count),
+         SAP.PRES = ifelse(SAP.COUNT>0,1,SAP.COUNT))
 
 sap.dat <- sap %>% 
   left_join(.,
@@ -134,12 +134,13 @@ sap.dat <- sap %>%
                      #contains("EXT"),
                      #contains("EMT"),
                      contains("MWMT"),
-                     ECOSUBCD, REMPER,# ECO_GRP_NEW_NAM,
-                     INVYR, ELEV, most.recent) %>% 
-              mutate(MAT_anom = MAT_remper_mean-MAT_19802010,
-                     MAP_anom = MAP_remper_mean-MAP_19802010,
-                     CMD_anom = CMD_remper_mean-CMD_19802010,
-                     MAP_relanom = MAP_anom/MAP_19802010),
+                     contains("REMPER"),
+                     ECOSUBCD,
+                     INVYR, ELEV, most.recent), # %>% 
+              # mutate(MAT_anom = MAT_remper_mean-MAT_19802010,
+              #        MAP_anom = MAP_remper_mean-MAP_19802010,
+              #        CMD_anom = CMD_remper_mean-CMD_19802010,
+              #        MAP_relanom = MAP_anom/MAP_19802010),
             by="PLT_CN") %>% 
   left_join(micr.cond,
             by=c("PLT_CN")) %>% 
@@ -167,7 +168,7 @@ sap.dat <- sap %>%
          dist.sev = ifelse(is.na(dist.sev),0,dist.sev),
          mort.prop = ifelse(is.na(mort.prop),0,mort.prop)) %>% 
   filter(!is.na(ASPECT),
-         !is.na(MAT_19802010))
+         !is.na(MAT_ref_mean))
 
 
 ```

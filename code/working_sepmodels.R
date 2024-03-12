@@ -96,25 +96,37 @@ m.pred <- ggpredict(m19,
               mutate(SPCD="93"))
 
 
-s.pred <- ggpredict(s19,
-                    terms = c("MAT_anom[0:3, by=0.1]",
-                              "area.fire.prop [0, 0.1, 0.25]"
+s.pred <- ggpredict(r19,
+                    terms = c("MAT_maxanom.z[0:4], by=0.1]",
+                              "fire.sev [0.00]"
                     )) %>% 
   as.data.frame() %>% 
-  rename(MAT_anom = x,
-         area.fire = group
+  rename(MAT_maxanom.z = x,
+         CMD_maxanom.z = group
   ) %>%
   mutate(SPCD="19") %>% 
-  bind_rows(ggpredict(s93,
-                      terms = c("MAT_anom[0:3, by=0.1]",
-                                "area.fire.prop [0, 0.1, 0.25]"
+  bind_rows(ggpredict(r93,
+                      terms = c("MAT_maxanom.z[0:4], by=0.1]",
+                                "fire.sev [0.00]"
                       )) %>% 
               as.data.frame() %>% 
-              rename(MAT_anom = x,
-                     area.fire = group
+              rename(MAT_maxanom.z = x,
+                     CMD_maxanom.z = group
               ) %>% 
               mutate(SPCD="93"))
 
+
+s.pred %>% 
+  ggplot(aes(x = MAT_maxanom.z,
+             y = predicted,
+             ymin = conf.low,
+             ymax = conf.high,
+             fill = SPCD,
+             col = SPCD)) +
+  geom_ribbon(alpha = 0.1,
+              col = NA) +
+  geom_line(lwd=1.7) +
+  facet_grid(facets = ~CMD_maxanom.z)
 
 m.pred %>% 
   mutate(rate = "surv") %>% 

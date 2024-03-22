@@ -1066,6 +1066,7 @@ seed.dat <- seed %>%
                      contains("MWMT"),
                      contains("REMPER"),
                      ECOSUBCD,
+                     mult.comp.coexist,
                      INVYR, ELEV, most.recent), # %>% 
               # mutate(MAT_anom = MAT_remper_mean-MAT_19802010,
               #        MAP_anom = MAP_remper_mean-MAP_19802010,

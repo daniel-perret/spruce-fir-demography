@@ -218,7 +218,7 @@ m19.pred %>%
   theme(legend.position = "none")
 
 
-## 1sp climate reference x anoms-----
+## MAT climate reference x anoms-----
 
 # MORTALITY
 # ABLA MAT ref x anom
@@ -412,12 +412,182 @@ r93.pred %>%
 
 
 
+
+## CMD cliamte reference x anoms-----
+
+# MORTALITY
+# ABLA MAP ref x anom
+
+m19.pred <- ggpredict(m19, 
+                      terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
+                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+  as.data.frame() %>% 
+  rename(CMD_maxanom.z = x,
+         MAP_ref_mean = group)
+
+m19.pred %>% 
+  ggplot(.,
+         aes(x = CMD_maxanom.z,
+             y = 1-predicted)) +
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = MAP_ref_mean),
+              alpha = 0.4) +
+  geom_line(aes(col = MAP_ref_mean),
+            lwd=2) +
+  scale_color_manual(name = "Reference\nMAP",
+                     values = c("firebrick2",
+                                "goldenrod",
+                                "dodgerblue2"),
+                     aesthetics = c("col","fill")) +
+  labs(x = "CMD max anomaly (z-score)",
+       y = "P(mortality)")
+
+# PIEN MAP ref x anom
+
+m93.pred <- ggpredict(m93, 
+                      terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
+                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+  as.data.frame() %>% 
+  rename(CMD_maxanom.z = x,
+         MAP_ref_mean = group)
+
+m93.pred %>% 
+  ggplot(.,
+         aes(x = CMD_maxanom.z,
+             y = 1-predicted)) +
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = MAP_ref_mean),
+              alpha = 0.4) +
+  geom_line(aes(col = MAP_ref_mean),
+            lwd=2) +
+  scale_color_manual(name = "Reference\nMAP",
+                     values = c("firebrick2",
+                                "goldenrod",
+                                "dodgerblue2"),
+                     aesthetics = c("col","fill")) +
+  labs(x = "CMD max anomaly (z-score)",
+       y = "P(mortality)")
+
+# SEEDLINGS
+# ABLA MAP ref x anom
+
+s19.pred <- ggpredict(s19, 
+                      terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
+                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+  as.data.frame() %>% 
+  rename(CMD_maxanom.z = x,
+         MAP_ref_mean = group)
+
+s19.pred %>% 
+  ggplot(.,
+         aes(x = CMD_maxanom.z,
+             y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = MAP_ref_mean),
+              alpha = 0.4) +
+  geom_line(aes(col = MAP_ref_mean),
+            lwd=2) +
+  scale_color_manual(name = "Reference\nMAP",
+                     values = c("firebrick2",
+                                "goldenrod",
+                                "dodgerblue2"),
+                     aesthetics = c("col","fill")) +
+  labs(x = "CMD max anomaly (z-score)",
+       y = "P(seedlings)")
+
+# PIEN MAP ref x anom
+
+
+s93.pred <- ggpredict(s93, 
+                      terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
+                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+  as.data.frame() %>% 
+  rename(CMD_maxanom.z = x,
+         MAP_ref_mean = group)
+
+s93.pred %>% 
+  ggplot(.,
+         aes(x = CMD_maxanom.z,
+             y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = MAP_ref_mean),
+              alpha = 0.4) +
+  geom_line(aes(col = MAP_ref_mean),
+            lwd=2) +
+  scale_color_manual(name = "Reference\nMAP",
+                     values = c("firebrick2",
+                                "goldenrod",
+                                "dodgerblue2"),
+                     aesthetics = c("col","fill")) +
+  labs(x = "CMD max anomaly (z-score)",
+       y = "P(seedlings)")
+
+# SAPLINGS
+# ABLA MAP ref x anom
+
+r19.pred <- ggpredict(r19, 
+                      terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
+                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+  as.data.frame() %>% 
+  rename(CMD_maxanom.z = x,
+         MAP_ref_mean = group)
+
+r19.pred %>% 
+  ggplot(.,
+         aes(x = CMD_maxanom.z,
+             y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = MAP_ref_mean),
+              alpha = 0.4) +
+  geom_line(aes(col = MAP_ref_mean),
+            lwd=2) +
+  scale_color_manual(name = "Reference\nMAP",
+                     values = c("firebrick2",
+                                "goldenrod",
+                                "dodgerblue2"),
+                     aesthetics = c("col","fill")) +
+  labs(x = "CMD max anomaly (z-score)",
+       y = "P(sapling recruits)")
+
+# PIEN MAP ref x anom
+
+
+r93.pred <- ggpredict(r93, 
+                      terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
+                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+  as.data.frame() %>% 
+  rename(CMD_maxanom.z = x,
+         MAP_ref_mean = group)
+
+r93.pred %>% 
+  ggplot(.,
+         aes(x = CMD_maxanom.z,
+             y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = MAP_ref_mean),
+              alpha = 0.4) +
+  geom_line(aes(col = MAP_ref_mean),
+            lwd=2) +
+  scale_color_manual(name = "Reference\nMAP",
+                     values = c("firebrick2",
+                                "goldenrod",
+                                "dodgerblue2"),
+                     aesthetics = c("col","fill")) +
+  labs(x = "CMD max anomaly (z-score)",
+       y = "P(sapling recruits)")
+
+
+
 ## MORTALITY x tree size x anoms ------
 
 # subalpine fir
 m19.pred <- ggpredict(m19,
-                     # terms = c("MAT_maxanom.z [1.5:3.5, by=0.05]",
-                    #            "PREVDIA [10,18.8,35]"),
                       terms = c("PREVDIA [12.7:55, by = 0.5]",
                                 "MAT_maxanom.z [1.5,2.5,3.5]"),
                       ) %>% 
@@ -434,19 +604,46 @@ m19.pred %>%
                   fill = MAT_maxanom.z),
               alpha=0.4) +
   geom_line(aes(col = MAT_maxanom.z),
-            lwd=2)
+            lwd=2) +
+  scale_color_manual(name = "MAT max anomaly\n (z-score)",
+                     values = c("dodgerblue2","gold2","firebrick2"),
+                     aesthetics = c("fill","col")) +
+  labs(x = "Tree size (cm DBH)",
+       y = "P(mortality)")
 
-
-# Engelmann spruce
-m93.pred <- ggpredict(m93,
-                     # terms = c("MAT_maxanom.z [1.5:3.5, by=0.05]",
-                    #            "PREVDIA [10,18.8,35]"),
+m19.pred <- ggpredict(m19,
                       terms = c("PREVDIA [12.7:55, by = 0.5]",
-                                "MAT_ref_mean [0,3,6]"),
-                      ) %>% 
+                                "CMD_maxanom.z [0.5,1.5,2.5]"),
+) %>% 
   as.data.frame() %>% 
   rename(PREVDIA = x,
-         MAT_ref_mean = group)
+         CMD_maxanom.z = group)
+
+m19.pred %>% 
+  ggplot(.,
+         aes(x = PREVDIA,
+             y = 1-predicted)) +
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = CMD_maxanom.z),
+              alpha=0.4) +
+  geom_line(aes(col = CMD_maxanom.z),
+            lwd=2) +
+  scale_color_manual(name = "CMD max anomaly\n (z-score)",
+                     values = c("dodgerblue2","gold2","firebrick2"),
+                     aesthetics = c("fill","col")) +
+  labs(x = "Tree size (cm DBH)",
+       y = "P(mortality)")
+
+# Engelmann spruce
+
+m93.pred <- ggpredict(m93,
+                      terms = c("PREVDIA [12.7:55, by = 0.5]",
+                                "MAT_maxanom.z [1.5,2.5,3.5]"),
+) %>% 
+  as.data.frame() %>% 
+  rename(PREVDIA = x,
+         MAT_maxanom.z = group)
 
 m93.pred %>% 
   ggplot(.,
@@ -454,11 +651,172 @@ m93.pred %>%
              y = 1-predicted)) +
   geom_ribbon(aes(ymin = 1-conf.low,
                   ymax = 1-conf.high,
-                  fill = MAT_ref_mean),
+                  fill = MAT_maxanom.z),
               alpha=0.4) +
-  geom_line(aes(col = MAT_ref_mean),
+  geom_line(aes(col = MAT_maxanom.z),
             lwd=2) +
+  scale_color_manual(name = "MAT max anomaly\n (z-score)",
+                     values = c("dodgerblue2","gold2","firebrick2"),
+                     aesthetics = c("fill","col")) +
   labs(x = "Tree size (cm DBH)",
+       y = "P(mortality)")
+
+m93.pred <- ggpredict(m93,
+                      terms = c("PREVDIA [12.7:55, by = 0.5]",
+                                "CMD_maxanom.z [0.5,1.5,2.5]"),
+) %>% 
+  as.data.frame() %>% 
+  rename(PREVDIA = x,
+         CMD_maxanom.z = group)
+
+m93.pred %>% 
+  ggplot(.,
+         aes(x = PREVDIA,
+             y = 1-predicted)) +
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = CMD_maxanom.z),
+              alpha=0.4) +
+  geom_line(aes(col = CMD_maxanom.z),
+            lwd=2) +
+  scale_color_manual(name = "CMD max anomaly\n (z-score)",
+                     values = c("dodgerblue2","gold2","firebrick2"),
+                     aesthetics = c("fill","col")) +
+  labs(x = "Tree size (cm DBH)",
+       y = "P(mortality)")
+
+
+## disturbance plots ----
+
+# species together  -----
+##mort
+pred.19 <- ggpredict(m19, 
+                     terms = c("area.fire.prop [0:0.5, by=0.01]")) %>% 
+  as.data.frame() %>% 
+  rename(area.fire = x)
+
+pred.93 <- ggpredict(m93, 
+                     terms = c("area.fire.prop [0:0.5, by=0.01]")) %>% 
+  as.data.frame() %>% 
+  rename(area.fire = x)
+
+pred.19 %>% 
+  ggplot(aes(x = area.fire,
+             y = 1-predicted)) +
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = "ABLA"),
+              alpha=0.4)+
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = "PIEN"),
+              data = pred.93,
+              alpha=0.4) +
+  geom_line(lwd=2,
+            aes(col = "ABLA")) +
+  geom_line(lwd = 2,
+            data = pred.93,
+            aes(col = "PIEN")) + 
+  scale_color_manual(values = c("ABLA" = "dodgerblue2",
+                                "PIEN" = "goldenrod"),
+                     aesthetics = c("fill", "col")) +
+  labs(x = "Proportion disturbed by fire",
+       y = "P(mortality)") +
+  theme(legend.position = "none")
+## seed
+pred.19 <- ggpredict(s19, 
+                     terms = c("fire.sev [0:1, by=0.01]")) %>% 
+  as.data.frame() %>% 
+  rename(fire.sev = x)
+
+pred.93 <- ggpredict(s93, 
+                     terms = c("fire.sev [0:1, by=0.01]")) %>% 
+  as.data.frame() %>% 
+  rename(fire.sev = x)
+
+pred.19 %>% 
+  ggplot(aes(x = fire.sev,
+             y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = "ABLA"),
+              alpha=0.4)+
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = "PIEN"),
+              data = pred.93,
+              alpha=0.4) +
+  geom_line(lwd=2,
+            aes(col = "ABLA")) +
+  geom_line(lwd = 2,
+            data = pred.93,
+            aes(col = "PIEN")) + 
+  scale_color_manual(values = c("ABLA" = "dodgerblue2",
+                                "PIEN" = "goldenrod"),
+                     aesthetics = c("fill", "col")) +
+  labs(x = "Fire severity (prop. mortality)",
+       y = "P(seedling)") +
+  theme(legend.position = "none")
+# sap
+pred.19 <- ggpredict(r19, 
+                     terms = c("fire.sev [0:1, by=0.01]")) %>% 
+  as.data.frame() %>% 
+  rename(fire.sev = x)
+
+pred.93 <- ggpredict(r93, 
+                     terms = c("fire.sev [0:1, by=0.01]")) %>% 
+  as.data.frame() %>% 
+  rename(fire.sev = x)
+
+pred.19 %>% 
+  ggplot(aes(x = fire.sev,
+             y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = "ABLA"),
+              alpha=0.4)+
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = "PIEN"),
+              data = pred.93,
+              alpha=0.4) +
+  geom_line(lwd=2,
+            aes(col = "ABLA")) +
+  geom_line(lwd = 2,
+            data = pred.93,
+            aes(col = "PIEN")) + 
+  scale_color_manual(values = c("ABLA" = "dodgerblue2",
+                                "PIEN" = "goldenrod"),
+                     aesthetics = c("fill", "col")) +
+  labs(x = "Fire severity (prop. mortality)",
+       y = "P(sapling recruits)") +
+  theme(legend.position = "none")
+
+## disturbance x anomalies
+
+pred.19 <- ggpredict(m19, 
+                      terms = c("MAT_maxanom.z [1.5:3.5, by = 0.05]",
+                                "area.fire.prop [0, .15, 0.3]")) %>% 
+  as.data.frame() %>% 
+  rename(MAT_maxanom.z = x,
+         area.fire = group)
+
+pred.19 %>% 
+  ggplot(.,
+         aes(x = MAT_maxanom.z,
+             y = 1-predicted)) +
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = area.fire),
+              alpha = 0.4) +
+  geom_line(aes(col = area.fire),
+            lwd=2) +
+  scale_color_manual(name = "Area disturbed\nby fire",
+                     values = c("0" = "dodgerblue2",
+                                "0.15" = "goldenrod",
+                                "0.3" = "firebrick2"),
+                     aesthetics = c("col","fill")) +
+  labs(x = "MAT max anomaly (z-score)",
        y = "P(mortality)")
 
 
@@ -466,6 +824,9 @@ m93.pred %>%
 
 
 
+
+
+#-------
 
 m19.pred <- ggpredict(m19,
                      # terms = c("MAT_maxanom.z [1.5:3.5, by=0.05]",

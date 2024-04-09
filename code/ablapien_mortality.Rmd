@@ -598,6 +598,13 @@ dall.er.ablapien <- dall.er.sp %>%
                                        quad.19 %in% c("development","densification") & 
                                          quad.93 %in% c("development","densification") ~ "resilience"))
 
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  left_join(dall.er.ablapien %>% 
+              sf::st_drop_geometry() %>% 
+              select(MAP_UNIT_S, quad.19, quad.93, mult.comp.coexist),
+            by=c("ECOSUBCD"="MAP_UNIT_S"))
+
 ```
 
 
@@ -835,13 +842,6 @@ ggplot() +
 
 ## mortality sources:
 ```{r}
-
-
-all.fia$PLOT <- all.fia$PLOT %>% 
-  left_join(dall.er.ablapien %>% 
-              sf::st_drop_geometry() %>% 
-              select(MAP_UNIT_S, quad.19, quad.93, mult.comp.coexist),
-            by=c("ECOSUBCD"="MAP_UNIT_S"))
 
 all.fia$TREE <- all.fia$TREE %>% 
   mutate(focal = case_when(SPCD==19 ~ "abla",
@@ -1105,7 +1105,6 @@ seed.dat <- seed %>%
 ```
 
 
-```
 
 # Modeling
 
@@ -1608,6 +1607,13 @@ ggpredict(m1,
 
 
 ```{r}
+
+
+
+
+
+
+
 #median values
 #PREV_BAA <- 1000
 PREV_BAH <- 12

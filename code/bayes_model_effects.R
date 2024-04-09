@@ -590,7 +590,7 @@ r93.pred %>%
 m19.pred <- ggpredict(m19,
                       terms = c("PREVDIA [12.7:55, by = 0.5]",
                                 "MAT_maxanom.z [1.5,2.5,3.5]"),
-                      ) %>% 
+) %>% 
   as.data.frame() %>% 
   rename(PREVDIA = x,
          MAT_maxanom.z = group)
@@ -687,8 +687,6 @@ m93.pred %>%
 
 
 ## disturbance plots ----
-
-# species together  -----
 ##mort
 pred.19 <- ggpredict(m19, 
                      terms = c("area.fire.prop [0:0.5, by=0.01]")) %>% 
@@ -795,8 +793,8 @@ pred.19 %>%
 ## disturbance x anomalies
 
 pred.19 <- ggpredict(m19, 
-                      terms = c("MAT_maxanom.z [1.5:3.5, by = 0.05]",
-                                "area.fire.prop [0, .15, 0.3]")) %>% 
+                     terms = c("MAT_maxanom.z [1.5:3.5, by = 0.05]",
+                               "area.fire.prop [0, .15, 0.3]")) %>% 
   as.data.frame() %>% 
   rename(MAT_maxanom.z = x,
          area.fire = group)
@@ -826,14 +824,122 @@ pred.19 %>%
 
 
 
+
+## BAH plots-----------
+##mort
+pred.19 <- ggpredict(m19, 
+                     terms = c("PREV_BAH [0:30, by=0.05]")) %>% 
+  as.data.frame() %>% 
+  rename(PREV_BAH = x)
+
+pred.93 <- ggpredict(m93, 
+                     terms = c("PREV_BAH [0:30, by=0.05]")) %>% 
+  as.data.frame() %>% 
+  rename(PREV_BAH = x)
+
+pred.19 %>% 
+  ggplot(aes(x = PREV_BAH,
+             y = 1-predicted)) +
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = "ABLA"),
+              alpha=0.4)+
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = "PIEN"),
+              data = pred.93,
+              alpha=0.4) +
+  geom_line(lwd=2,
+            aes(col = "ABLA")) +
+  geom_line(lwd = 2,
+            data = pred.93,
+            aes(col = "PIEN")) + 
+  scale_color_manual(values = c("ABLA" = "dodgerblue2",
+                                "PIEN" = "goldenrod"),
+                     aesthetics = c("fill", "col")) +
+  labs(x = "Stand basal area (per hectare)",
+       y = "P(mortality)") +
+  theme(legend.position = "none")
+## seed
+pred.19 <- ggpredict(s19, 
+                     terms = c("PREV_BAH [0:30, by=0.05]")) %>% 
+  as.data.frame() %>% 
+  rename(PREV_BAH = x)
+
+pred.93 <- ggpredict(s93, 
+                     terms = c("PREV_BAH [0:30, by=0.05]")) %>% 
+  as.data.frame() %>% 
+  rename(PREV_BAH = x)
+
+pred.19 %>% 
+  ggplot(aes(x = PREV_BAH,
+             y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = "ABLA"),
+              alpha=0.4)+
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = "PIEN"),
+              data = pred.93,
+              alpha=0.4) +
+  geom_line(lwd=2,
+            aes(col = "ABLA")) +
+  geom_line(lwd = 2,
+            data = pred.93,
+            aes(col = "PIEN")) + 
+  scale_color_manual(values = c("ABLA" = "dodgerblue2",
+                                "PIEN" = "goldenrod"),
+                     aesthetics = c("fill", "col")) +
+  labs(x = "Stand basal area (per hectare)",
+       y = "P(seedling)") +
+  theme(legend.position = "none")
+# sap
+pred.19 <- ggpredict(r19, 
+                     terms = c("PREV_BAH [0:30, by=0.05]")) %>% 
+  as.data.frame() %>% 
+  rename(PREV_BAH = x)
+
+pred.93 <- ggpredict(r93, 
+                     terms = c("PREV_BAH [0:30, by=0.05]")) %>% 
+  as.data.frame() %>% 
+  rename(PREV_BAH = x)
+
+pred.19 %>% 
+  ggplot(aes(x = PREV_BAH,
+             y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = "ABLA"),
+              alpha=0.4)+
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high,
+                  fill = "PIEN"),
+              data = pred.93,
+              alpha=0.4) +
+  geom_line(lwd=2,
+            aes(col = "ABLA")) +
+  geom_line(lwd = 2,
+            data = pred.93,
+            aes(col = "PIEN")) + 
+  scale_color_manual(values = c("ABLA" = "dodgerblue2",
+                                "PIEN" = "goldenrod"),
+                     aesthetics = c("fill", "col")) +
+  labs(x = "Stand basal area (per hectare)",
+       y = "P(sapling recruits)") +
+  theme(legend.position = "none")
+
+
+
+
 #-------
 
 m19.pred <- ggpredict(m19,
-                     # terms = c("MAT_maxanom.z [1.5:3.5, by=0.05]",
-                    #            "PREVDIA [10,18.8,35]"),
+                      # terms = c("MAT_maxanom.z [1.5:3.5, by=0.05]",
+                      #            "PREVDIA [10,18.8,35]"),
                       terms = c("MAT_ref_mean [-2:9, by = 0.5]",
                                 "MAP_ref_mean [500,1000,1500]"),
-                      ) %>% 
+) %>% 
   as.data.frame() %>% 
   rename(MAT_ref_mean = x,
          MAP_ref_mean = group)
@@ -848,6 +954,9 @@ m19.pred %>%
               alpha=0.4) +
   geom_line(aes(col = MAP_ref_mean),
             lwd=2)
+
+
+
 
 
 
@@ -921,10 +1030,12 @@ ggplot(p19,
            y = s.pred,
            col = factor(SPCD),
            bg = factor(SPCD))) +
-  geom_point(alpha=0.2,pch=21)+
-  geom_density_2d(lwd=0.75) +
-  geom_point(data=p93,alpha=0.2,pch=21)+
-  geom_density_2d(data=p93,lwd=0.75) +
+  geom_point(alpha=0.3,pch=21, size=2)+
+  #geom_density_2d(lwd=0.75) +
+  stat_ellipse(level=0.95)+
+  geom_point(data=p93,alpha=0.3,pch=21,size=2)+
+  stat_ellipse(data=p93,level=0.95) +
+  #geom_density_2d(data=p93,lwd=0.75) +
   facet_wrap(facets=~factor(mult.comp.coexist, 
                             levels=c("resilience",
                                      "structural change",
@@ -934,6 +1045,259 @@ ggplot(p19,
   labs(x = "Predicted probability of mortality",
        y = "Predicted probability of regeneration") +
   scale_color_manual(name = "Species",
-                     values = c("19" = "dodgerblue3",
-                                "93" = "firebrick2"),
+                     values = c("19" = "dodgerblue2",
+                                "93" = "goldenrod"),
                      aesthetics = c("col","bg"))
+
+ggplot(p19,
+       aes(x=m.pred,
+           y = r.pred,
+           col = factor(SPCD),
+           bg = factor(SPCD))) +
+  geom_point(alpha=0.3,pch=21, size=2)+
+  geom_density_2d(lwd=0.75) +
+  geom_point(data=p93,alpha=0.3,pch=21,size=2)+
+  geom_density_2d(data=p93,lwd=0.75) +
+  facet_wrap(facets=~factor(mult.comp.coexist, 
+                            levels=c("resilience",
+                                     "structural change",
+                                     "compositional change",
+                                     "replacement")),
+             ncol=1) +
+  labs(x = "Predicted probability of mortality",
+       y = "Predicted probability of recruitment") +
+  scale_color_manual(name = "Species",
+                     values = c("19" = "dodgerblue2",
+                                "93" = "goldenrod"),
+                     aesthetics = c("col","bg"))
+
+ggplot(p19,
+       aes(x=s.pred,
+           y = r.pred,
+           col = factor(SPCD),
+           bg = factor(SPCD))) +
+  geom_point(alpha=0.3,pch=21, size=2)+
+  geom_density_2d(lwd=0.75) +
+  geom_point(data=p93,alpha=0.3,pch=21,size=2)+
+  geom_density_2d(data=p93,lwd=0.75) +
+  facet_wrap(facets=~factor(mult.comp.coexist, 
+                            levels=c("resilience",
+                                     "structural change",
+                                     "compositional change",
+                                     "replacement")),
+             ncol=1) +
+  labs(x = "Predicted probability of regeneration",
+       y = "Predicted probability of recruitment") +
+  scale_color_manual(name = "Species",
+                     values = c("19" = "dodgerblue2",
+                                "93" = "goldenrod"),
+                     aesthetics = c("col","bg"))
+
+
+#### reorienting plot------
+install.packages("ggforce")
+library(ggforce)
+
+p.m <- p19 %>% 
+  left_join(p93,
+            by = c("ECOSUBCD","mult.comp.coexist"),
+            suffix = c(".19",".93")) %>% 
+  group_by()
+
+p.m.summary <- p.m %>% 
+  group_by(mult.comp.coexist) %>% 
+  summarise(m.pred.93.mean = mean(m.pred.93),
+            m.pred.19.mean = mean(m.pred.19),
+            s.pred.93.mean = mean(s.pred.93),
+            s.pred.19.mean = mean(s.pred.19),
+            r.pred.93.mean = mean(r.pred.93),
+            r.pred.19.mean = mean(r.pred.19),
+            
+            m.pred.93.low = as.numeric(quantile(m.pred.93, 0.1)),
+            m.pred.19.low = as.numeric(quantile(m.pred.19, 0.1)),
+            s.pred.93.low = as.numeric(quantile(s.pred.93, 0.1)),
+            s.pred.19.low = as.numeric(quantile(s.pred.19, 0.1)),
+            r.pred.93.low = as.numeric(quantile(r.pred.93, 0.1)),
+            r.pred.19.low = as.numeric(quantile(r.pred.19, 0.1)),
+            
+            m.pred.93.high = as.numeric(quantile(m.pred.93, 0.9)),
+            m.pred.19.high = as.numeric(quantile(m.pred.19, 0.9)),
+            s.pred.93.high = as.numeric(quantile(s.pred.93, 0.9)),
+            s.pred.19.high = as.numeric(quantile(s.pred.19, 0.9)),
+            r.pred.93.high = as.numeric(quantile(r.pred.93, 0.9)),
+            r.pred.19.high = as.numeric(quantile(r.pred.19, 0.9)))
+
+
+p.m %>%  
+  ggplot(.,
+         aes(x = (m.pred.19),
+             y = (m.pred.93),
+             group = mult.comp.coexist)) +
+  geom_point(alpha=0.3,pch=21, size=4,
+             aes(bg = mult.comp.coexist)) +
+  stat_ellipse(aes(col = mult.comp.coexist),
+               type="t",
+               level = 0.95)+
+  # geom_segment(data = p.m.summary,
+  #              aes(x = m.pred.93.mean,
+  #                  xend = m.pred.93.mean,
+  #                  y = m.pred.19.low,
+  #                  yend = m.pred.19.high,
+  #                  col = mult.comp.coexist),
+  #              lwd=2)+
+  # geom_segment(data = p.m.summary,
+  #              aes(x = m.pred.19.low,
+  #                  xend = m.pred.19.high,
+  #                  y = m.pred.93.mean,
+#                  yend = m.pred.93.mean,
+#                  col = mult.comp.coexist),
+#              lwd=2)+
+  scale_color_manual(name = "multispecies trajectory",
+                   values = c("resilience" = "dodgerblue2",
+                              "structural change" = "gold2",
+                              "compositional change" = "firebrick2",
+                              "replacement" = "firebrick4"),
+                   aesthetics = c("col","bg")) +
+  #  lims(x = c(0,1), y =c(0,1))+
+  labs(x = "P(mortality) -- Subalpine fir",
+       y = "P(mortality) -- Engelmann spruce") #+
+  # coord_trans(x = ggforce::power_trans(2),
+  #             y = ggforce::power_trans(2)) 
+  # scale_x_continuous(breaks = seq(from=0,to=1,by=0.2),
+  #                    labels = seq(from=0,to=1,by=0.2))+
+  # scale_y_continuous(breaks = seq(from=0,to=1,by=0.2), 
+  #                    labels = seq(from=0,to=1,by=0.2))
+
+
+p.m %>%  
+  ggplot(.,
+         aes(x = sqrt(m.pred.19),
+             y = sqrt(m.pred.93),
+             group = mult.comp.coexist)) +
+  stat_ellipse(aes(col=mult.comp.coexist),
+               geom="polygon",
+               fill=NA,
+               alpha=0.8,
+               type="t",
+               level = 0.90,
+               lwd=1.5)+
+  geom_point(alpha=0.3,pch=21, size=4,
+             aes(bg = mult.comp.coexist)) +
+  scale_color_manual(name = "multispecies trajectory",
+                     values = c("resilience" = "dodgerblue2",
+                                "structural change" = "gold2",
+                                "compositional change" = "firebrick2",
+                                "replacement" = "firebrick4"),
+                     aesthetics = c("col","fill")) +
+  lims(x = c(0,1), y =c(0,1))+
+  labs(x = "P(mortality) -- Subalpine fir",
+       y = "P(mortality) -- Engelmann spruce") +
+  coord_trans(x = ggforce::power_trans(2),
+              y = ggforce::power_trans(2)) 
+p.m %>%  
+  ggplot(.,
+         aes(x = sqrt(s.pred.19),
+             y = sqrt(s.pred.93),
+             group = mult.comp.coexist)) +
+  stat_ellipse(aes(col=mult.comp.coexist),
+               geom="polygon",
+               fill=NA,
+               alpha=0.8,
+               type="t",
+               level = 0.90,
+               lwd=1.5)+
+  geom_point(alpha=0.3,pch=21, size=4,
+             aes(bg = mult.comp.coexist)) +
+  scale_color_manual(name = "multispecies trajectory",
+                     values = c("resilience" = "dodgerblue2",
+                                "structural change" = "gold2",
+                                "compositional change" = "firebrick2",
+                                "replacement" = "firebrick4"),
+                     aesthetics = c("col","fill")) +
+  lims(x = c(0,1), y =c(0,1))+
+  labs(x = "P(seedling) -- Subalpine fir",
+       y = "P(seedling) -- Engelmann spruce") +
+  coord_trans(x = ggforce::power_trans(2),
+              y = ggforce::power_trans(2))
+
+p.m %>%  
+  ggplot(.,
+         aes(x = sqrt(r.pred.19),
+             y = sqrt(r.pred.93),
+             group = mult.comp.coexist)) +
+  stat_ellipse(aes(col=mult.comp.coexist),
+               geom="polygon",
+               fill=NA,
+               alpha=0.8,
+               type="t",
+               level = 0.90,
+               lwd=1.5)+
+  geom_point(alpha=0.3,pch=21, size=4,
+             aes(bg = mult.comp.coexist)) +
+  scale_color_manual(name = "multispecies trajectory",
+                     values = c("resilience" = "dodgerblue2",
+                                "structural change" = "gold2",
+                                "compositional change" = "firebrick2",
+                                "replacement" = "firebrick4"),
+                     aesthetics = c("col","fill")) +
+  lims(x = c(0,1), y =c(0,1))+
+  labs(x = "P(recruitment) -- Subalpine fir",
+       y = "P(recruitment) -- Engelmann spruce") +
+  coord_trans(x = ggforce::power_trans(2),
+              y = ggforce::power_trans(2)) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

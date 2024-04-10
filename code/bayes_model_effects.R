@@ -1101,8 +1101,7 @@ library(ggforce)
 p.m <- p19 %>% 
   left_join(p93,
             by = c("ECOSUBCD","mult.comp.coexist"),
-            suffix = c(".19",".93")) %>% 
-  group_by()
+            suffix = c(".19",".93"))
 
 p.m.summary <- p.m %>% 
   group_by(mult.comp.coexist) %>% 

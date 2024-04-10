@@ -1,4 +1,5 @@
 install.packages("nnet")
+install.packages("mlogit")
 library(nnet)
 
 p.m$mult.comp.coexist <- factor(p.m$mult.comp.coexist)
@@ -6,18 +7,35 @@ p.m$mult.comp.coexist <- relevel(p.m$mult.comp.coexist,ref = "resilience")
 
 
 m.m <- nnet::multinom(formula = 
-                        mult.comp.coexist ~ m.pred.19*m.pred.93 +
-                        s.pred.19*s.pred.93 +
-                        r.pred.19*r.pred.93,
+                        mult.comp.coexist ~ m.pred.19*s.pred.19*r.pred.19 +
+                        m.pred.93*s.pred.93*r.pred.93,
+                        # mult.comp.coexist ~ m.pred.19*m.pred.93 +
+                        # s.pred.19*s.pred.93 +
+                        # r.pred.19*r.pred.93,
                       # mult.comp.coexist ~ m.pred.19*s.pred.19*r.pred.19*
                       # m.pred.93*s.pred.93*r.pred.93,
-                      data = p.m, maxit=1000)
+                      data = p.m, maxit=10000)
+
+#library(mlogit)
+
+dat <- p.m %>% 
+  mlogit.data(shape = 'long',
+              choice = 'mult.comp.coexist',
+              id.var = 'ECOSUBCD')
+  
+m.m <- brms::brm(formula = 
+                   brms::bf(mult.comp.coexist ~ m.pred.19*s.pred.19*r.pred.19 +
+                   m.pred.93*s.pred.93*r.pred.93),
+                 family = brms::multinomial(link="logit"),
+                 data=p.m)
 
 summary(m.m)
 
-p.m$pred <- predict(m.m,type="probs")
+p.m$pred <- predict(m.m,type="class")
 
 tab <- table(p.m$mult.comp.coexist, p.m$pred)
+tab <- table(p.m$mult.comp.coexist, 
+             p.m$pred[round(runif(nrow(p.m),1,nrow(p.m)))])
 
 round((sum(diag(tab))/sum(tab))*100,2)
 

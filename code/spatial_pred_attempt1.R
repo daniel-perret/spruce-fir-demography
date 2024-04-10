@@ -89,7 +89,7 @@
 writeRaster(allClimNA %>% 
               terra::rast(),filename = "climNA_all.tif", overwrite=T)
 
-allClimNA <- raster::stack("climNA_all.tif")
+allClimNA <- raster::stack("data/climNA_all.tif")
 
 ########### filling rasters
 

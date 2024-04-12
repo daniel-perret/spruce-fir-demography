@@ -8,7 +8,7 @@
 
 #### reading in and formatting Future climate data for 2050-2060 decade ----
 
-clim2060 <- read.csv("D:/abla_pien_coords3_13GCMs_ensemble_ssp585_2050-2060Y.csv")
+clim2060 <- read.csv("D:/abla_pien_coords3_13GCMs_ensemble_ssp370_2050-2060Y.csv")
 clim2020_2050 <- read.csv("D:/abla_pien_coords_13GCMs_ensemble_ssp585_2020-2050Y.csv")
 
 clim2060 <- clim2060 %>% 
@@ -368,7 +368,8 @@ dall.er.ablapien2 <- dall.er.ablapien %>%
             p.m.fut,
             by = c("MAP_UNIT_S"="ECOSUBCD")) %>% 
   group_by(MAP_UNIT_S) %>% 
-  mutate(class.prob = max(resilience,`structural change`,`compositional change`,replacement,na.rm=T))
+  mutate(class.prob = max(resilience,`structural change`,
+                          `compositional change`,replacement,na.rm=T))
 
 ggplot() +
   geom_sf(data = cont %>% 

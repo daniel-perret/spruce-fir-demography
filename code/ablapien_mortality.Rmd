@@ -208,6 +208,7 @@ all.fia$TREE <- all.fia$TREE %>%
 ## some summary dataframes and fields for convenience
 abla.trees <- all.fia$TREE %>% 
   filter(SPCD == 19)
+
 pien.trees <- all.fia$TREE %>% 
   filter(SPCD == 93)
 
@@ -502,12 +503,19 @@ evals <- c(21903,41903,61903,81903,161903,301903,321903,351903,411903,491903,531
 # minimum size threshold for estimate
 thresh <- 12.7
 
+all.co <- all.fia$PLOT %>% filter(co.pres ==1) %>% pull(PLT_CN)
+
+all.fia$TREE <- all.fia$TREE %>% 
+  mutate(co.pres = ifelse(PLT_CN %in% all.co |
+                            PREV_PLT_CN %in% all.co, 1, 0))
+
 ## Density change estimates for all species
 dtpa.er.sp <- growMort_dlp.metric(db = all.fia,
                                   stateVar = "TPA",
                                   polys = er4.co %>%
                                     sf::st_as_sf() %>%
                                     select(MAP_UNIT_S),
+                                  treeDomain = co.pres==1,
                                   grpBy = SPCD,
                                   totals = TRUE,
                                   returnSpatial = T, 
@@ -515,7 +523,8 @@ dtpa.er.sp <- growMort_dlp.metric(db = all.fia,
                                   #variance = T,
                                   sizeThresh=thresh,
                                   evals = evals,
-                                  method="TI") %>% 
+                                  method="TI",
+                                  treeList=F) %>% 
   group_by(MAP_UNIT_S) %>% 
   filter(YEAR==max(YEAR)) # 2019 inventory for all states but WY
 
@@ -526,6 +535,7 @@ dbaa.er.sp <- all.fia %>%
                       polys = er4.co %>%
                         sf::st_as_sf() %>% 
                         select(MAP_UNIT_S),
+                      treeDomain = co.pres==1,
                       grpBy = SPCD,
                       totals = TRUE,
                       returnSpatial = F, 
@@ -553,6 +563,7 @@ dtpa.er.sp.agent <- all.fia %>%
                         sf::st_as_sf() %>% 
                         select(MAP_UNIT_S),
                       totals = TRUE,
+                      treeDomain = co.pres==1,
                       grpBy = c(SPCD, agent_key),
                       returnSpatial = T, 
                       nCores = 4,
@@ -562,6 +573,7 @@ dtpa.er.sp.agent <- all.fia %>%
                       method="TI") %>% 
   group_by(MAP_UNIT_S) %>% 
   filter(YEAR==max(YEAR))
+
 
 # pulling out ABLA/PIEN and formatting
 
@@ -590,10 +602,10 @@ dall.er.ablapien <- dall.er.sp %>%
                              CHNG_PERC.tph_93.c >= 0 & CHNG_PERC.bah_93.c < 0 ~ "turnover"),
          mult.comp.coexist = case_when(quad.19 == "decline" & quad.93 == "decline" ~ "replacement",
                                        
-                                       quad.19 == "turnover" | quad.93 == "turnover" ~ "structural change",
+                                       quad.19 == "turnover" | quad.93 == "turnover" ~ "restructuring",
                                        
-                                       quad.19 == "decline" & quad.93 %in% c("development","densification") ~ "compositional change",
-                                       quad.93 == "decline" & quad.19 %in% c("development","densification") ~ "compositional change",
+                                       quad.19 == "decline" & quad.93 %in% c("development","densification") ~ "reassembly",
+                                       quad.93 == "decline" & quad.19 %in% c("development","densification") ~ "reassembly",
                                        
                                        quad.19 %in% c("development","densification") & 
                                          quad.93 %in% c("development","densification") ~ "resilience"))
@@ -850,6 +862,7 @@ all.fia$TREE <- all.fia$TREE %>%
 mort.src.est <- all.fia %>% 
   growMort_dlp.metric(db = .,
                       stateVar="TPA",
+                      treeDomain = co.pres==1,
                       #areaDomain = co.pres==1,
                       totals = TRUE,
                       grpBy = c(mult.comp.coexist, focal, agent_key),

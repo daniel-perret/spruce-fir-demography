@@ -7,29 +7,22 @@ p.m$mult.comp.coexist <- relevel(p.m$mult.comp.coexist,ref = "resilience")
 
 
 m.m <- nnet::multinom(formula = 
-                        mult.comp.coexist ~ m.pred.19*s.pred.19*r.pred.19 +
+                        mult.comp.coexist ~ 
+                        m.pred.19*s.pred.19*r.pred.19+
                         m.pred.93*s.pred.93*r.pred.93,
-                        # mult.comp.coexist ~ m.pred.19*m.pred.93 +
-                        # s.pred.19*s.pred.93 +
-                        # r.pred.19*r.pred.93,
+                        
+                       # m.pred.19:s.pred.19:r.pred.19:m.pred.93:s.pred.93:r.pred.93,
+                       # m.pred.19*m.pred.93 +
+                       #  s.pred.19*s.pred.93 +
+                       #  r.pred.19*r.pred.93,
                       # mult.comp.coexist ~ m.pred.19*s.pred.19*r.pred.19*
                       # m.pred.93*s.pred.93*r.pred.93,
                       data = p.m, maxit=10000)
 
-#library(mlogit)
-
-dat <- p.m %>% 
-  mlogit.data(shape = 'long',
-              choice = 'mult.comp.coexist',
-              id.var = 'ECOSUBCD')
-  
-m.m <- brms::brm(formula = 
-                   brms::bf(mult.comp.coexist ~ m.pred.19*s.pred.19*r.pred.19 +
-                   m.pred.93*s.pred.93*r.pred.93),
-                 family = brms::multinomial(link="logit"),
-                 data=p.m)
+library(mlogit)
 
 summary(m.m)
+performance(m.m)
 
 p.m$pred <- predict(m.m,type="class")
 
@@ -58,16 +51,16 @@ m.dat %>%
   geom_tile(aes(alpha = resilience),
             data = m.dat %>% 
               filter(pred.cat=="resilience")) +
-  geom_tile(aes(alpha = `structural change`),
+  geom_tile(aes(alpha = `restructuring`),
             data = m.dat %>% 
-              filter(pred.cat=="structural change")) +
-  geom_tile(aes(alpha = `compositional change`),
+              filter(pred.cat=="restructuring")) +
+  geom_tile(aes(alpha = `reassembly`),
             data = m.dat %>%
-              filter(pred.cat=="compositional change")) +
+              filter(pred.cat=="reassembly")) +
   scale_fill_manual(name = "multispecies trajectory",
                     values = c("resilience" = "dodgerblue2",
-                               "structural change" = "gold2",
-                               "compositional change" = "firebrick2",
+                               "restructuring" = "gold2",
+                               "reassembly" = "firebrick2",
                                "replacement" = "firebrick4"),
                     aesthetics = c("col","bg","fill")) +
   scale_alpha_binned(limits = c(0,1), range=c(-0.25,1),

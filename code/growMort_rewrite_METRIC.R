@@ -23,7 +23,7 @@ typeDomain_grow_dlp.metric <- function(db, treeType, landType, sizeThresh, evals
   db$newCOMPONENT <- db$TREE %>% 
     filter(PLT_CN%in%eval.plots) %>% #limit trees to those on plots included in the EVALS we want
     select(TRE_CN,PLT_CN,INVYR,SPCD,AGENTCD,DIA,PREVDIA,PREV_TRE_CN,
-           STATUSCD,PREV_STATUS_CD,RECONCILECD,state_key,
+           STATUSCD,PREV_STATUS_CD,RECONCILECD,
            CONDID,PREVCOND,
            contains("UNADJ")) %>% 
     left_join(., db$TREE %>% 
@@ -230,19 +230,6 @@ growMortStarter_dlp.metric <- function(x,
   # User defined domain indicator for area (ex. specific forest type)
   db <- rFIA:::udAreaDomain(db, areaDomain)
   
-  # Here's some code to fix problems where trees were identified as different species. If that happened, we'll change the SPCD to the *most recent* identification
-  # There are other options for this, but this seems reasonable; as the tree is larger and hence easier to identify the second time
-  # 
-  # db$TREE <- db$TREE %>% 
-  #   left_join(.,
-  #             db$TREE %>% 
-  #               select(PREV_TRE_CN, SPCD) %>% 
-  #               rename(LATER_SPCD=SPCD),
-  #             by=c("TRE_CN"="PREV_TRE_CN")) %>% 
-  #   mutate(SPCD = case_when(SPCD!=LATER_SPCD & !is.na(LATER_SPCD) ~ LATER_SPCD,
-  #                           is.na(LATER_SPCD) ~ SPCD,
-  #                           TRUE ~ SPCD))
-  # 
   # User defined domain indicator for tree (ex. trees > 20 ft tall)
   db <- rFIA:::udTreeDomain(db, treeDomain)
   
@@ -682,7 +669,7 @@ growMortStarter_dlp.metric <- function(x,
                                                   SUBPTYP == 2 ~ 'MICR',
                                                   SUBPTYP == 3 ~ 'MACR')) %>%
       as.data.frame() %>%
-      dplyr::select(PLT_CN, #TRE_CN, REMPER, 
+      dplyr::select(PLT_CN, #TRE_CN, #reCOMPONENT,#REMPER, 
                     TREE_BASIS, SUBP, TREE, !!!grpSyms, rPlot:gPlot)#, contains("UNADJ"),tDI,REMPER)
     
     
@@ -720,6 +707,7 @@ growMortStarter_dlp.metric <- function(x,
                       CHNG_TPA = cPlot,
                       CURR_TPA = tPlot,
                       PREV_TPA = pPlot,
+                      #TRE_CN,reCOMPONENT, #01may24
                       PROP_FOREST = fa)
       out <- list(tEst = tEst, aEst = NULL, grpBy = grpBy, aGrpBy = aGrpBy)
       

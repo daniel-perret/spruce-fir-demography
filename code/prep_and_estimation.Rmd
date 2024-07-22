@@ -1,0 +1,809 @@
+---
+title: "prep_and_estimation"
+author: "D Perret"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      prompt = FALSE,
+                      error = TRUE,
+                      message = FALSE,
+                      cache = FALSE,
+                      cache.lazy = FALSE,
+                      eval = TRUE,
+                      eval.after = "fig.cap")
+
+library(tidyverse)
+library(rFIA)
+library(ggplot2)
+library(ggExtra)
+library(rgdal)
+library(sp)
+library(ggsci)
+library(raster)
+library(splines)
+library(lme4)
+library(brms)
+library(patchwork)
+library(performance)
+library(ggeffects)
+select <- dplyr::select
+
+# setting my preferred ggplot2 theme
+theme_set(theme_bw())
+theme_update(text = element_text(size=16, color = "black"),
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             strip.background = element_blank(),
+             panel.border=element_rect(size=1.5))
+
+# colors to be used in all map figures
+mapcolor <- "wheat3"
+linecolor <- "gray40"
+regioncolors <- c("Cascade Mixed Forest" = "#009E73",
+                  "Northern Rocky Mountain Forest-Steppe" = "#56B4E9",
+                  "Middle Rocky Mountain Steppe" = "#E69F00",
+                  "Southern Rocky Mountain Steppe" = "#CC79A7",
+                  "zIntermountain Semi-Desert" = "gray20",
+                  "AZ-NM Mountains" = "#D55E00")
+
+# sourcing estimation base code
+source("growMort_rewrite_METRIC.R")
+
+```
+
+# Data preparation
+
+## FIA data
+
+```{r fia.data, echo=T}
+
+# reading downloaded FIA data from a local directory, using rFIA functionality
+
+all.fia <- readFIA(dir = "/Users/DanielPerret/Box/01. daniel.perret Workspace/fia_data_082123/",
+                   common=T, states=c("WA","OR","ID","MT","WY","UT","CO",
+                                      "CA","NV","NM","AZ"))
+
+exact.coords <- read.csv("D:/coords_format.csv",header=T) %>% 
+  select(PLT_CN = ID1,
+         LAT_EXACT = lat,
+         LON_EXACT = long)
+
+#creating some fields in various tables
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  mutate(pltID = paste(UNITCD,STATECD,COUNTYCD,PLOT,sep="_"),
+         PLT_CN = CN,
+         ECOSUBCD = trimws(ECOSUBCD),
+         state_key = case_when(STATECD == 8 ~ "CO",
+                               STATECD == 30 ~ "MT",
+                               STATECD == 16 ~ "ID",
+                               STATECD == 41 ~ "OR",
+                               STATECD == 53 ~ "WA",
+                               STATECD == 49 ~ "UT",
+                               STATECD == 56 ~ "WY",
+                               STATECD == 6 ~ "CA",
+                               STATECD == 32 ~ "NV",
+                               STATECD == 35 ~ "NM",
+                               STATECD == 4 ~ "AZ")) %>% 
+  group_by(pltID) %>% 
+  mutate(most.recent = ifelse(MEASYEAR==max(MEASYEAR),
+                              "yes","no")) %>% 
+  ungroup() %>% 
+  left_join(exact.coords,
+            by="PLT_CN")
+
+all.fia$COND <- all.fia$COND %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN,most.recent),
+            by="PLT_CN") %>% 
+  mutate(state_key = case_when(STATECD == 8 ~ "CO",
+                               STATECD == 30 ~ "MT",
+                               STATECD == 16 ~ "ID",
+                               STATECD == 41 ~ "OR",
+                               STATECD == 53 ~ "WA",
+                               STATECD == 49 ~ "UT",
+                               STATECD == 56 ~ "WY"))
+
+
+# Because annual inventories began later in Wyoming, we need to link back to earlier period inventories in order to make our eventual change estimates. This code does that by using plot number links and tree azimuth and distance. 
+
+## plots
+wy.p2a.plotlink <- read.csv("data/wy_p2alink.csv",header=T,stringsAsFactors=F) %>%
+  select(CN, PREV_PLT_CN.update = PREV_PLT_CN)
+
+### updating plots
+all.fia$PLOT <- all.fia$PLOT %>% 
+  left_join(., wy.p2a.plotlink,
+            by="CN") %>% 
+  mutate(PREV_PLT_CN = ifelse(!is.na(PREV_PLT_CN.update),
+                              PREV_PLT_CN.update,
+                              PREV_PLT_CN)) %>% 
+  select(-PREV_PLT_CN.update) %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN,MEASYEAR.prev = MEASYEAR),
+            by = c("PREV_PLT_CN"="PLT_CN")) %>% 
+  mutate(REMPER = ifelse(is.na(REMPER),
+                         MEASYEAR-MEASYEAR.prev,
+                         REMPER))
+## trees
+wy.p2a.treelink <- read.csv("data/wy_p2alink_tree.csv",header=T,stringsAsFactors=F) %>% 
+  rename(PREV_TRE_CN.update = PREV_TRE_CN)
+
+all.fia$TREE <- all.fia$TREE %>% 
+  left_join(., wy.p2a.treelink,
+            by="CN") %>% 
+  mutate(PREV_TRE_CN = ifelse(!is.na(PREV_TRE_CN.update),
+                              PREV_TRE_CN.update,
+                              PREV_TRE_CN)) %>% 
+  select(-PREV_TRE_CN.update,
+         -PREVDIA,
+         -PREV_STATUS_CD) %>% 
+  left_join(., all.fia$TREE %>% 
+              select(CN, PREVDIA=DIA, PREV_STATUS_CD = STATUSCD),
+            by = c("PREV_TRE_CN" = "CN"))
+
+# Other data curation steps
+
+## creating some fields and updating all SPCDs to most-recently ID'd SPCD -- this is necessary because it's quite common for trees to change species ID, especially in smaller age classes.
+
+all.fia$TREE <- all.fia$TREE %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN,most.recent),
+            by="PLT_CN") %>% 
+  mutate(TRE_CN = CN,
+         DIA = DIA*2.54,
+         PREVDIA = PREVDIA*2.54,
+         state_key = case_when(STATECD == 8 ~ "CO",
+                               STATECD == 30 ~ "MT",
+                               STATECD == 16 ~ "ID",
+                               STATECD == 41 ~ "OR",
+                               STATECD == 53 ~ "WA",
+                               STATECD == 49 ~ "UT",
+                               STATECD == 56 ~ "WY"),
+         agent_key = case_when(STATUSCD==2 & AGENTCD %in% c(00,70) ~ "unknown1",
+                               STATUSCD==2 & AGENTCD == 10 ~ "insect",
+                               STATUSCD==2 & AGENTCD == 20 ~ "disease",
+                               STATUSCD==2 & AGENTCD == 30 ~ "fire",
+                               STATUSCD==2 & AGENTCD == 40 ~ "animal",
+                               STATUSCD==2 & AGENTCD == 50 ~ "weather",
+                               STATUSCD==2 & AGENTCD == 60 ~ "competition",
+                               STATUSCD==2 & AGENTCD == 80 ~ "land use",
+                               STATUSCD==2 & is.na(AGENTCD) & 
+                                 (PREV_STATUS_CD==1 | 
+                                    is.na(PREV_STATUS_CD)) ~ "unknown2"),
+         insect.damage = case_when(DAMAGE_AGENT_CD1 >= 10000 &
+                                     DAMAGE_AGENT_CD1 < 19000 ~ 1,
+                                   DAMAGE_AGENT_CD2 >= 10000 &
+                                     DAMAGE_AGENT_CD2 < 19000 ~ 1,
+                                   DAMAGE_AGENT_CD3 >= 10000 &
+                                     DAMAGE_AGENT_CD3 < 19000 ~ 1,
+                                   TRUE ~ 0),
+         disease.damage = case_when(DAMAGE_AGENT_CD1 >= 20000 &
+                                      DAMAGE_AGENT_CD1 < 30000 ~ 1,
+                                    DAMAGE_AGENT_CD2 >= 20000 &
+                                      DAMAGE_AGENT_CD2 < 30000 ~ 1,
+                                    DAMAGE_AGENT_CD3 >= 20000 &
+                                      DAMAGE_AGENT_CD3 < 30000 ~ 1,
+                                    TRUE ~ 0),
+         other.damage = case_when(DAMAGE_AGENT_CD1 > 30000 ~ 1,
+                                  DAMAGE_AGENT_CD2 > 30000 ~ 1,
+                                  DAMAGE_AGENT_CD3 > 30000 ~ 1,
+                                  TRUE ~ 0)) %>% 
+  left_join(.,
+            all.fia$TREE %>% 
+              select(PREV_TRE_CN, SPCD) %>% 
+              rename(LATER_SPCD=SPCD),
+            by=c("TRE_CN"="PREV_TRE_CN")) %>% 
+  mutate(SPCD = case_when(SPCD!=LATER_SPCD & !is.na(LATER_SPCD) ~ LATER_SPCD,
+                          is.na(LATER_SPCD) ~ SPCD,
+                          TRUE ~ SPCD),
+         SPCD = ifelse(SPCD==18, 19, SPCD))
+
+## some summary dataframes and fields for convenience
+abla.trees <- all.fia$TREE %>% 
+  filter(SPCD == 19)
+
+pien.trees <- all.fia$TREE %>% 
+  filter(SPCD == 93)
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  mutate(abla.pres = ifelse(PLT_CN %in% unique(abla.trees$PLT_CN),
+                            1,0),
+         pien.pres = ifelse(PLT_CN %in% unique(pien.trees$PLT_CN),
+                            1,0),
+         co.pres = ifelse(abla.pres == 1 & pien.pres == 1, 1, 0))
+
+
+
+
+co.pres.plots <- all.fia$PLOT %>% 
+  filter(co.pres == 1,
+         INVYR>2009) %>% 
+  pull(PLT_CN)
+
+```
+## Spatial data
+
+```{r}
+
+# WGS84
+old.proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+
+# Albers Equal Area; centered in western US
+base.proj <- "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
+
+# US state boundaries
+states <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/state_boundaries",
+                  layer = "state_boundaries", verbose=F) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+# North American continent
+cont <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/continents",
+                layer = "na",
+                verbose=F,
+                p4s = old.proj) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+# Subalpine fir range
+range <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/named_ranges",
+                 layer = "abielasi",
+                 verbose = F,
+                 p4s = old.proj) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+# making a SpatialPointsDataFrame for of co-presence plot locations
+co.pres.sp <- all.fia$PLOT %>%
+  filter(co.pres ==1,
+         INVYR > 2009, 
+         most.recent == "yes") %>%
+  SpatialPointsDataFrame(coords = .[,c("LON","LAT")],
+                         data = .,
+                         proj4string = CRS(old.proj)) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+# Level 4 ecoregions (i.e., ecoregion subsections)
+er4 <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/cleland_usfs_ecoregions",
+               layer = "S_USA.EcomapSubsections",
+               verbose=F) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+# Level 3 ecoregions (i.e., ecoregion sections)
+er3 <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/cleland_usfs_ecoregions",
+               layer = "S_USA.EcomapSections",
+               verbose=F) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+# Level 2 ecoregions (i.e., ecological provinces)
+er2 <- readOGR(dsn="/Users/DanielPerret/Box/01. daniel.perret Workspace/base_spatialdata/cleland_usfs_ecoregions",
+               layer = "S_USA.EcoMapProvinces",
+               verbose=F) %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+### co-occurrence polygon!
+
+co.shp <- readOGR(dsn="data/co_occ_shp/", layer = "co_occ") %>% 
+  spTransform(.,
+              CRSobj = CRS(base.proj))
+
+co.shp.buff <- sf::st_buffer(co.shp %>% 
+                               sf::st_as_sf(),
+                             dist = 5000)
+
+# extracting ecoregions that contain both subalpine fir and engelmann spruce
+
+er4.co <- er4[co.pres.sp,]
+er3.co <- er3[co.pres.sp,]
+er2.co <- er2[co.pres.sp,]
+
+```
+## Climate data
+
+```{r climate.data, echo=T}
+
+# reading in 1981 - 2010 climate normals, downloaded from ClimateNA
+# clim.norms <- read.csv("D:/coords_format_Normal_1981_2010Y.csv", header=T) %>%
+#   select(PLT_CN=ID1,
+#          MAT,
+#          MAP,
+#          DD5,
+#          CMD,
+#          CMI,
+#          FFP) %>%
+#   mutate(MAT = ifelse(MAT==-9999, NA_real_, MAT))
+
+# reading in 1901-2021 climate timeseries, downloaded from ClimateNA
+# clim.ann <- read.csv("D:/coords_format_1901-2021Y.csv", header=T)
+# 
+# # summarizing climate variables to match the remeasurement period of all FIA plots
+# clim.remper <- clim.ann %>%
+#   select(PLT_CN=ID1,
+#          Year, 7:31) %>%
+#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
+#   left_join(all.fia$PLOT %>%
+#               mutate(REMPER_END = MEASYEAR,
+#                      REMPER_START = MEASYEAR-round(REMPER,digits=0)) %>%
+#               select(PLT_CN, REMPER_END, REMPER_START)) %>%
+#   mutate(REMPER_START = ifelse(is.na(REMPER_START), REMPER_END, REMPER_START),
+#          across(3:27, .fns = ~ifelse(Year %in% c(REMPER_START:REMPER_END), .x, NA_real_))) %>%
+#   group_by(PLT_CN) %>%
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names="{.col}_remper_mean"),
+#             across(MAT:DD1040, ~max(.x,na.rm=T), .names="{.col}_remper_max"),
+#             across(MAT:DD1040, ~min(.x,na.rm=T), .names="{.col}_remper_min"),
+#             across(MAT:DD1040, ~sd(.x,na.rm=T), .names="{.col}_remper_sd"))
+# 
+# # # summarizing climate variables over the 30 years prior to the first measurement
+# clim.ref <- clim.ann %>%
+#   select(PLT_CN=ID1,
+#          Year, 7:31) %>%
+#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
+#   left_join(all.fia$PLOT %>%
+#               mutate(REMPER_END = MEASYEAR,
+#                      REMPER_START = MEASYEAR-round(REMPER,digits=0)) %>%
+#               select(PLT_CN, REMPER_END, REMPER_START)) %>%
+#   mutate(REMPER_START = ifelse(is.na(REMPER_START), REMPER_END, REMPER_START),
+#          across(3:27, .fns = ~ifelse(Year %in% c((REMPER_START-30):REMPER_START), .x, NA_real_))) %>%
+#   group_by(PLT_CN) %>%
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names="{.col}_ref_mean"),
+#             # across(MAT:DD1040, ~max(.x,na.rm=T), .names="{.col}_ref_max"),
+#             # across(MAT:DD1040, ~min(.x,na.rm=T), .names="{.col}_ref_min"),
+#             across(MAT:DD1040, ~sd(.x,na.rm=T), .names="{.col}_ref_sd"))
+
+# summarizing climate variables for a "baseline" period 1900-1950
+# clim.base <- clim.ann %>%
+#   select(PLT_CN=ID1,
+#          Year, 7:31) %>%
+#   filter(Year %in% 1950:1980) %>%
+#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
+#   group_by(PLT_CN) %>%
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names = "{.col}_base_mean"),
+#             across(MAT:DD1040, ~max(.x,na.rm=T), .names="{.col}_base_max"),
+#             across(MAT:DD1040, ~min(.x,na.rm=T), .names="{.col}_base_min"))
+# 
+# # summarizing climate variables for a "recent" period 2010-2021
+# clim.recent <- clim.ann %>%
+#   select(PLT_CN=ID1,
+#          Year, 7:31) %>%
+#   filter(Year %in% 2010:2021) %>%
+#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
+#   group_by(PLT_CN) %>%
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names = "{.col}_recent_mean"),
+#             across(MAT:DD1040, ~max(.x,na.rm=T), .names="{.col}_recent_max"),
+#             across(MAT:DD1040, ~min(.x,na.rm=T), .names="{.col}_recent_min"))
+
+# # experimental bit grabbing just the three years before remeasurement
+# clim.surv <- clim.ann %>%
+#   select(PLT_CN=ID1,
+#          Year, 7:31) %>%
+#   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
+#   left_join(all.fia$PLOT %>%
+#               mutate(REMPER_END = MEASYEAR,
+#                      REMPER_START = MEASYEAR-round(REMPER,digits=0)) %>%
+#               select(PLT_CN, REMPER_END, REMPER_START)) %>%
+#   mutate(REMPER_START = ifelse(is.na(REMPER_START), REMPER_END, REMPER_START),
+#          across(3:27, .fns = ~ifelse(Year %in% c((REMPER_END-2):REMPER_END), .x, NA_real_))) %>%
+#   group_by(PLT_CN) %>%
+#   summarise(across(MAT:DD1040, ~mean(.x,na.rm=T), .names="{.col}_surv_mean"),
+#             across(MAT:DD1040, ~max(.x,na.rm=T), .names="{.col}_surv_max"),
+#             across(MAT:DD1040, ~min(.x,na.rm=T), .names="{.col}_surv_min"))
+
+
+# write.csv(clim.norms, file = "data/clim_norms.csv", row.names = F)
+# write.csv(clim.base, file = "data/clim_base2.csv", row.names = F)
+# write.csv(clim.remper, file = "data/clim_remper2.csv", row.names = F)
+# write.csv(clim.ref, file = "data/clim_ref.csv", row.names = F)
+# write.csv(clim.recent, file = "data/clim_recent2.csv", row.names = F)
+# write.csv(clim.surv, file = "data/clim_surv.csv", row.names = F)
+
+
+## Only re-run climate processing code if something needs to be changed! It takes forever to run!
+
+clim.norms <- read.csv("data/clim_norms.csv",header=T,stringsAsFactors=F)
+clim.base <- read.csv("data/clim_base2.csv", header=T, stringsAsFactors=F)
+clim.remper <- read.csv("data/clim_remper2.csv",header=T,stringsAsFactors=F)
+clim.recent <- read.csv("data/clim_recent2.csv",header=T,stringsAsFactors=F)
+clim.surv <- read.csv("data/clim_surv.csv",header=T,stringsAsFactors=F)
+clim.ref <- read.csv("data/clim_ref.csv",header=T,stringsAsFactors=F)
+
+
+# joining climate variables to FIA plots
+all.fia$PLOT <- all.fia$PLOT %>% 
+  left_join(clim.norms,
+            by="PLT_CN") %>%
+  left_join(clim.remper,
+            by="PLT_CN") %>%
+  left_join(clim.base,
+            by="PLT_CN") %>%
+  left_join(clim.recent,
+            by="PLT_CN") %>%
+  left_join(clim.surv,
+            by="PLT_CN") %>% 
+  left_join(clim.ref,
+            by="PLT_CN") %>% 
+  mutate(REMPER_END = MEASYEAR,
+         REMPER_START = MEASYEAR-round(REMPER,digits=0),
+         MAT_maxanom = (MAT_remper_max - MAT_ref_mean),
+         CMD_maxanom = (CMD_remper_max - CMD_ref_mean),
+         MAT_maxanom.z = (MAT_remper_max - MAT_ref_mean)/MAT_ref_sd,
+         CMD_maxanom.z = (CMD_remper_max - CMD_ref_mean)/CMD_ref_sd,
+         ) %>%
+  ungroup()
+
+
+# ###### CLIMNA raster data
+# 
+# past.climna <- raster::stack("/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/sugarpine-status-trends/data/climNA_rasters/MAT.tif",
+#                              "/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/sugarpine-status-trends/data/climNA_rasters/MAP.tif",
+#                              "/Users/DanielPerret/Box/01. daniel.perret Workspace/PROJECTS/sugarpine-status-trends/data/climNA_rasters/CMD.tif")%>% 
+#   projectRaster(.,crs = CRS(base.proj)) 
+# 
+# # mask(.,
+# #    mask = co.shp.buff)
+# 
+# fut.climna <- raster::stack(
+#   "/Users/DanielPerret/Box/01. daniel.perret Workspace/climateNA/ensemble_13GCMs_ssp370_2041_2060_bioclim/ensemble_13GCMs_ssp370_2041_2060/ensemble_13GCMs_ssp370_2041_2060_bioclim/ensemble_13GCMs_ssp370_2041_2060_MAT.tif",
+#   "/Users/DanielPerret/Box/01. daniel.perret Workspace/climateNA/ensemble_13GCMs_ssp370_2041_2060_bioclim/ensemble_13GCMs_ssp370_2041_2060/ensemble_13GCMs_ssp370_2041_2060_bioclim/ensemble_13GCMs_ssp370_2041_2060_MAP.tif",
+#   "/Users/DanielPerret/Box/01. daniel.perret Workspace/climateNA/ensemble_13GCMs_ssp370_2041_2060_bioclim/ensemble_13GCMs_ssp370_2041_2060/ensemble_13GCMs_ssp370_2041_2060_bioclim/ensemble_13GCMs_ssp370_2041_2060_CMD.tif"
+# ) %>% 
+#   projectRaster(.,crs = CRS(base.proj)) %>% 
+#   mask(.,
+#        mask = co.shp.buff)
+# names(fut.climna) <- c("MAT","MAP","CMD")
+# 
+# ###### extracting climna data
+# 
+# t <- all.fia$PLOT %>% 
+#   filter(co.pres==1) %>% 
+#   select(LON_EXACT, LAT_EXACT) %>%
+#   filter(!is.na(LAT_EXACT)) %>% 
+#   SpatialPointsDataFrame(.,
+#                          data = all.fia$PLOT %>% 
+#                            filter(co.pres==1,
+#                                   !is.na(LAT_EXACT)) %>% 
+#                            select(PLT_CN,LON_EXACT,LAT_EXACT),
+#                          proj4string = CRS(old.proj)) %>% 
+#   spTransform(., CRSobj = CRS(base.proj))
+# 
+# t <- t@data %>% 
+#   bind_cols(raster::extract(x = past.climna,
+#                             y = t) %>% 
+#               as.data.frame() %>% 
+#               rename(MAT_19802010 = MAT,
+#                      MAP_19802010 = MAP,
+#                      CMD_19802010 = CMD)) %>% 
+#   mutate(MAT_19802010 = MAT_19802010/10)
+# 
+# all.fia$PLOT <- all.fia$PLOT %>% 
+#   left_join(t, by="PLT_CN")
+
+
+```
+
+
+
+## Population estimation
+
+```{r}
+
+# rewritten estimation code needs us to specify the EvalIDs that we're interested in
+evals <- c(21903,41903,61903,81903,161903,301903,321903,351903,411903,491903,531903,561903)
+
+# minimum size threshold for estimate
+thresh <- 12.7
+
+all.co <- all.fia$PLOT %>% filter(co.pres ==1) %>% pull(PLT_CN)
+
+all.fia$TREE <- all.fia$TREE %>% 
+  left_join(all.fia$PLOT %>% 
+              select(PLT_CN,PREV_PLT_CN),
+            by="PLT_CN") %>% 
+  mutate(co.pres = ifelse(PLT_CN %in% all.co |
+                            PREV_PLT_CN %in% all.co, 1, 0))
+
+## Density change estimates for all species
+dtpa.er.sp <- growMort_dlp.metric(db = all.fia,
+                                  stateVar = "TPA",
+                                  polys = er4.co %>%
+                                    sf::st_as_sf() %>%
+                                    select(MAP_UNIT_S),
+                                  treeDomain = co.pres==1,
+                                  areaDomain = co.pres==1,
+                                  grpBy = SPCD,
+                                  totals = TRUE,
+                                  returnSpatial = T, 
+                                  nCores = 4,
+                                  #variance = T,
+                                  sizeThresh=thresh,
+                                  evals = evals,
+                                  method="TI",
+                                  treeList=F) %>% 
+  group_by(MAP_UNIT_S) %>% 
+  filter(YEAR==max(YEAR)) # 2019 inventory for all states but WY
+
+## Basal area change estimates for all species
+dbaa.er.sp <- all.fia %>% 
+  growMort_dlp.metric(db = .,
+                      stateVar = "BAA",
+                      polys = er4.co %>%
+                        sf::st_as_sf() %>% 
+                        select(MAP_UNIT_S),
+                      treeDomain = co.pres==1,
+                      areaDomain = co.pres==1,
+                      grpBy = SPCD,
+                      totals = TRUE,
+                      returnSpatial = F, 
+                      nCores = 4,
+                      #variance = T,
+                      sizeThresh=thresh,
+                      evals = evals,
+                      method="TI") %>% 
+  group_by(MAP_UNIT_S) %>% 
+  filter(YEAR==max(YEAR))
+
+#combining TPA and BAA change estimates
+dall.er.sp <- left_join(dtpa.er.sp, dbaa.er.sp,
+                        suffix = c(".tph",".bah"),
+                        by=c("MAP_UNIT_S","polyID","SPCD","YEAR","N",
+                             "nPlots_TREE","nPlots_AREA","AREA_TOTAL_ha"))
+
+
+
+# total agent-specific mortality for all species
+dtpa.er.sp.agent <- all.fia %>% 
+  growMort_dlp.metric(db = .,
+                      stateVar = "TPA",
+                      polys = er4.co %>%
+                        sf::st_as_sf() %>% 
+                        select(MAP_UNIT_S),
+                      totals = TRUE,
+                      treeDomain = co.pres==1,
+                      areaDomain = co.pres==1,
+                      grpBy = c(SPCD, agent_key),
+                      returnSpatial = T, 
+                      nCores = 4,
+                      #variance = T,
+                      sizeThresh = thresh,
+                      evals = evals,
+                      method="TI") %>% 
+  group_by(MAP_UNIT_S) %>% 
+  filter(YEAR==max(YEAR))
+
+#Getting previous BAA
+plot.attributes.prev <- growMort_dlp.metric(db = all.fia,
+                                            byPlot = T,
+                                            bySpecies = F,
+                                            stateVar = "BAA",
+                                            evals = evals,
+                                            sizeThresh = 12.7,
+                                            polys = NULL,
+                                            returnSpatial = F)
+# pulling out ABLA/PIEN and formatting
+
+dall.er.ablapien <- dall.er.sp %>%
+  ungroup() %>% 
+  filter(SPCD %in% c(19,93)) %>%
+  pivot_wider(names_from = c("SPCD"),
+              values_from = c(5:86,88:ncol(.))) %>% 
+  filter(CURR_TPH_93 > 0 & CURR_TPH_19 > 0 |
+           PREV_TPH_93>0 & CURR_TPH_19>0) %>% 
+  mutate(CHNG_PERC.bah_19.c = ifelse(abs(CHNG_PERC_CV.bah_19)>=100, 0, CHNG_PERC.bah_19),
+         CHNG_PERC.tph_19.c = ifelse(abs(CHNG_PERC_CV.tph_19)>=100, 0, CHNG_PERC.tph_19),
+         CHNG_PERC.bah_93.c = ifelse(abs(CHNG_PERC_CV.bah_93)>=100, 0, CHNG_PERC.bah_93),
+         CHNG_PERC.tph_93.c = ifelse(abs(CHNG_PERC_CV.tph_93)>=100, 0, CHNG_PERC.tph_93),
+         CHNG_PERC.bah_19.c = ifelse(is.na(CHNG_PERC.bah_19.c), 0, CHNG_PERC.bah_19.c),
+         CHNG_PERC.tph_19.c = ifelse(is.na(CHNG_PERC.tph_19.c), 0, CHNG_PERC.tph_19.c),
+         CHNG_PERC.bah_93.c = ifelse(is.na(CHNG_PERC.bah_93.c), 0, CHNG_PERC.bah_93.c),
+         CHNG_PERC.tph_93.c = ifelse(is.na(CHNG_PERC.tph_93.c), 0, CHNG_PERC.tph_93.c) ) %>% 
+  mutate(quad.19 = case_when(CHNG_PERC.tph_19.c < 0 & CHNG_PERC.bah_19.c < 0 ~ "decline",
+                             CHNG_PERC.tph_19.c < 0 & CHNG_PERC.bah_19.c >= 0 ~ "development",
+                             CHNG_PERC.tph_19.c >= 0 & CHNG_PERC.bah_19.c >= 0 ~ "densification",
+                             CHNG_PERC.tph_19.c >= 0 & CHNG_PERC.bah_19.c < 0 ~ "turnover"),
+         quad.93 = case_when(CHNG_PERC.tph_93.c < 0 & CHNG_PERC.bah_93.c < 0 ~ "decline",
+                             CHNG_PERC.tph_93.c < 0 & CHNG_PERC.bah_93.c >= 0 ~ "development",
+                             CHNG_PERC.tph_93.c >= 0 & CHNG_PERC.bah_93.c >= 0 ~ "densification",
+                             CHNG_PERC.tph_93.c >= 0 & CHNG_PERC.bah_93.c < 0 ~ "turnover"),
+         mult.comp.coexist = case_when(quad.19 == "decline" & quad.93 == "decline" ~ "replacement",
+                                       
+                                       quad.19 == "turnover" | quad.93 == "turnover" ~ "restructuring",
+                                       
+                                       quad.19 == "decline" & quad.93 %in% c("development","densification") ~ "reassembly",
+                                       quad.93 == "decline" & quad.19 %in% c("development","densification") ~ "reassembly",
+                                       
+                                       quad.19 %in% c("development","densification") & 
+                                         quad.93 %in% c("development","densification") ~ "resilience"))
+
+
+all.fia$PLOT <- all.fia$PLOT %>% 
+  left_join(dall.er.ablapien %>% 
+              sf::st_drop_geometry() %>% 
+              select(MAP_UNIT_S, quad.19, quad.93, mult.comp.coexist),
+            by=c("ECOSUBCD"="MAP_UNIT_S"))
+
+
+
+
+```
+
+
+## Disturbed area estimates
+
+```{r}
+
+# getting plot-level expansion factors by PLT_CN
+popinfo <- rFIA::getDesignInfo(all.fia,type="ALL") %>% 
+  left_join(all.fia$POP_STRATUM %>% 
+              select(STRATUM_CN=CN,
+                     EXPNS),
+            by="STRATUM_CN")
+
+# plots with fire mortality
+fire.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         INVYR>2009,       
+         SPCD%in%c(19,93),
+         agent_key=="fire") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+# plots with insect mortality
+insect.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         INVYR>2009,       
+         SPCD%in%c(19,93),
+         agent_key=="insect") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+# plots with disease mortality
+disease.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         INVYR>2009,       
+         SPCD%in%c(19,93),
+         agent_key=="disease") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+# animal
+animal.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         INVYR>2009,       
+         SPCD%in%c(19,93),
+         agent_key=="animal") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+# competition
+competition.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         INVYR>2009,       
+         SPCD%in%c(19,93),
+         agent_key=="competition") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+# weather
+weather.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         INVYR>2009,       
+         SPCD%in%c(19,93),
+         agent_key=="weather") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+# land use
+land.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         INVYR>2009,       
+         SPCD%in%c(19,93),
+         agent_key=="land_use") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+# unknown mortality
+unknown.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         INVYR>2009,       
+         SPCD%in%c(19,93),
+         agent_key=="unknown") %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+# total
+all.plots <- all.fia$TREE %>% 
+  filter(most.recent=="yes",
+         INVYR>2009,       
+         SPCD%in%c(19,93)
+  ) %>% 
+  pull(PLT_CN) %>% 
+  unique()
+
+# summing up plot expansion factors for mortality types across all plots
+mort.area.all <- all.fia$PLOT %>% 
+  left_join(popinfo %>% 
+              select(PLT_CN,EXPNS)) %>%
+  summarise(fire.area = sum(EXPNS*ifelse(PLT_CN %in% fire.plots, 1, 0), na.rm=T),
+            insect.area = sum(EXPNS*ifelse(PLT_CN %in% insect.plots, 1, 0), na.rm=T),
+            disease.area = sum(EXPNS*ifelse(PLT_CN %in% disease.plots, 1, 0), na.rm=T),
+            id.area = sum(EXPNS*ifelse(PLT_CN %in% c(disease.plots,insect.plots), 1, 0), na.rm=T),
+            fid.area = sum(EXPNS*ifelse(PLT_CN %in% c(fire.plots,disease.plots,insect.plots), 1, 0), na.rm=T),
+            animal.area = sum(EXPNS*ifelse(PLT_CN %in% animal.plots, 1, 0), na.rm=T),
+            competition.area = sum(EXPNS*ifelse(PLT_CN %in% competition.plots, 1, 0), na.rm=T),
+            weather.area = sum(EXPNS*ifelse(PLT_CN %in% weather.plots, 1, 0), na.rm=T),
+            land.area = sum(EXPNS*ifelse(PLT_CN %in% land.plots, 1, 0), na.rm=T),
+            unknown.area = sum(EXPNS*ifelse(PLT_CN %in% unknown.plots, 1, 0), na.rm=T),
+            total.area = sum(EXPNS*ifelse(PLT_CN %in% all.plots, 1, 0), na.rm=T))
+
+# summing plot expansion factors for mortality types within ecoregion subsections
+mort.area.er <- all.fia$PLOT %>% 
+  filter(co.pres == 1,
+         INVYR > 2009) %>% 
+  left_join(popinfo %>% 
+              select(PLT_CN,EXPNS)) %>% 
+  group_by(ECOSUBCD) %>%
+  summarise(area.fire = sum(EXPNS*ifelse(PLT_CN %in% fire.plots, 1, 0), na.rm=T),
+            area.insect = sum(EXPNS*ifelse(PLT_CN %in% insect.plots, 1, 0), na.rm=T),
+            area.disease = sum(EXPNS*ifelse(PLT_CN %in% disease.plots, 1, 0), na.rm=T),
+            area.id = sum(EXPNS*ifelse(PLT_CN %in% c(disease.plots,insect.plots), 1, 0), na.rm=T),
+            area.fid = sum(EXPNS*ifelse(PLT_CN %in% c(fire.plots,disease.plots,insect.plots), 1, 0), na.rm=T),
+            area.animal = sum(EXPNS*ifelse(PLT_CN %in% animal.plots, 1, 0), na.rm=T),
+            area.competition = sum(EXPNS*ifelse(PLT_CN %in% competition.plots, 1, 0), na.rm=T),
+            area.weather = sum(EXPNS*ifelse(PLT_CN %in% weather.plots, 1, 0), na.rm=T),
+            area.land = sum(EXPNS*ifelse(PLT_CN %in% land.plots, 1, 0), na.rm=T),
+            area.unknown = sum(EXPNS*ifelse(PLT_CN %in% unknown.plots, 1, 0), na.rm=T),
+            area.total = sum(EXPNS*ifelse(PLT_CN %in% all.plots, 1, 0), na.rm=T)) %>% 
+  ungroup()
+
+# joining to main summary dataframe
+dall.er.ablapien <- dall.er.ablapien %>% 
+  left_join(mort.area.er, by = c("MAP_UNIT_S"="ECOSUBCD")) %>% 
+  mutate(area.fire.prop = area.fire/area.total,
+         area.id.prop = area.id/area.total,
+         area.insect.prop = area.insect/area.total,
+         area.disease.prop = area.disease/area.total)
+
+
+```
+
+## Trying an option where I pull disturbance information by condition class
+
+```{r}
+
+co.cond <- all.fia$COND %>% 
+  filter(PLT_CN %in% co.pres.plots,
+         INVYR>2009) %>% 
+  summarise(fire = ifelse(DSTRBCD1 %in% 30:32 |
+                            DSTRBCD2 %in% 30:32 |
+                            DSTRBCD3 %in% 30:32, 
+                          "burned", "unburned"),
+            bda = ifelse(DSTRBCD1 %in% c(10:12,20:22) | 
+                           DSTRBCD2 %in% c(10:12,20:22) | 
+                           DSTRBCD3 %in% c(10:12,20:22),
+                         "bda", "no.bda"),
+            fire.year = case_when(DSTRBCD1 %in% 30:32 ~ DSTRBYR1,
+                                  DSTRBCD2 %in% 30:32 ~ DSTRBYR2,
+                                  DSTRBCD3 %in% 30:32 ~ DSTRBYR3),
+            bda.year = case_when(DSTRBCD1 %in% c(10:12,20:22) ~ DSTRBYR1,
+                                 DSTRBCD2 %in% c(10:12,20:22) ~ DSTRBYR2,
+                                 DSTRBCD3 %in% c(10:12,20:22) ~ DSTRBYR3),
+            disturbance = case_when(fire == "burned" & bda == "bda" ~ "fire/bda",
+                                    fire == "burned" & bda == "no.bda" ~ "fire",
+                                    fire == "unburned" & bda == "bda" ~ "bda",
+                                    fire == "unburned" & bda == "no.bda" ~"undisturbed"),
+            CONDID = CONDID,
+            PLT_CN = PLT_CN,
+            SLOPE = SLOPE,
+            ASPECT = ASPECT)
+
+
+```
+

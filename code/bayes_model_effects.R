@@ -1,12 +1,20 @@
 ## This script takes bayesian models from "bayes_models_v2.R", draws posterior predictions, and makes some partial effects plots that I use to explore model predictions
 
+# 
+# load("data/m19v5.Rdata")
+# load("data/s19v6.Rdata")
+# load("data/r19v6.Rdata")
+# load("data/m93v5.Rdata")
+# load("data/s93v6.Rdata")
+# load("data/r93v6.Rdata")
 
-load("data/m19v5.Rdata")
-load("data/s19v6.Rdata")
-load("data/r19v6.Rdata")
-load("data/m93v5.Rdata")
-load("data/s93v6.Rdata")
-load("data/r93v6.Rdata")
+load("data/m19v7.Rdata")
+load("data/s19v7_cmd.Rdata")
+load("data/r19v7_cmd.Rdata")
+
+load("data/m93v7.Rdata")
+load("data/s93v7_cmd.Rdata")
+load("data/r93v7_cmd.Rdata")
 
 ## 2sp MAT/CMD partial effects plots ----
 # MAT anoms -------
@@ -420,10 +428,10 @@ r93.pred %>%
 
 m19.pred <- ggpredict(m19, 
                       terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
-                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+                                "CMD_ref_mean [150, 300, 450]")) %>% 
   as.data.frame() %>% 
   rename(CMD_maxanom.z = x,
-         MAP_ref_mean = group)
+         CMD_ref_mean = group)
 
 m19.pred %>% 
   ggplot(.,
@@ -431,14 +439,14 @@ m19.pred %>%
              y = 1-predicted)) +
   geom_ribbon(aes(ymin = 1-conf.low,
                   ymax = 1-conf.high,
-                  fill = MAP_ref_mean),
+                  fill = CMD_ref_mean),
               alpha = 0.4) +
-  geom_line(aes(col = MAP_ref_mean),
+  geom_line(aes(col = CMD_ref_mean),
             lwd=2) +
-  scale_color_manual(name = "Reference\nMAP",
-                     values = c("firebrick2",
+  scale_color_manual(name = "Reference\nCMD",
+                     values = c("dodgerblue2",
                                 "goldenrod",
-                                "dodgerblue2"),
+                                "firebrick2"),
                      aesthetics = c("col","fill")) +
   labs(x = "CMD max anomaly (z-score)",
        y = "P(mortality)")
@@ -447,10 +455,10 @@ m19.pred %>%
 
 m93.pred <- ggpredict(m93, 
                       terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
-                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+                                "CMD_ref_mean [150, 300, 450]")) %>% 
   as.data.frame() %>% 
   rename(CMD_maxanom.z = x,
-         MAP_ref_mean = group)
+         CMD_ref_mean = group)
 
 m93.pred %>% 
   ggplot(.,
@@ -458,14 +466,14 @@ m93.pred %>%
              y = 1-predicted)) +
   geom_ribbon(aes(ymin = 1-conf.low,
                   ymax = 1-conf.high,
-                  fill = MAP_ref_mean),
+                  fill = CMD_ref_mean),
               alpha = 0.4) +
-  geom_line(aes(col = MAP_ref_mean),
+  geom_line(aes(col = CMD_ref_mean),
             lwd=2) +
-  scale_color_manual(name = "Reference\nMAP",
-                     values = c("firebrick2",
+  scale_color_manual(name = "Reference\nCMD",
+                     values = c("dodgerblue2",
                                 "goldenrod",
-                                "dodgerblue2"),
+                                "firebrick2"),
                      aesthetics = c("col","fill")) +
   labs(x = "CMD max anomaly (z-score)",
        y = "P(mortality)")
@@ -475,10 +483,10 @@ m93.pred %>%
 
 s19.pred <- ggpredict(s19, 
                       terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
-                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+                                "CMD_ref_mean [150, 300, 450]")) %>% 
   as.data.frame() %>% 
   rename(CMD_maxanom.z = x,
-         MAP_ref_mean = group)
+         CMD_ref_mean = group)
 
 s19.pred %>% 
   ggplot(.,
@@ -486,14 +494,14 @@ s19.pred %>%
              y = predicted)) +
   geom_ribbon(aes(ymin = conf.low,
                   ymax = conf.high,
-                  fill = MAP_ref_mean),
+                  fill = CMD_ref_mean),
               alpha = 0.4) +
-  geom_line(aes(col = MAP_ref_mean),
+  geom_line(aes(col = CMD_ref_mean),
             lwd=2) +
-  scale_color_manual(name = "Reference\nMAP",
-                     values = c("firebrick2",
+  scale_color_manual(name = "Reference\nCMD",
+                     values = c("dodgerblue2",
                                 "goldenrod",
-                                "dodgerblue2"),
+                                "firebrick2"),
                      aesthetics = c("col","fill")) +
   labs(x = "CMD max anomaly (z-score)",
        y = "P(seedlings)")
@@ -503,10 +511,10 @@ s19.pred %>%
 
 s93.pred <- ggpredict(s93, 
                       terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
-                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+                                "CMD_ref_mean [150, 300, 450]")) %>% 
   as.data.frame() %>% 
   rename(CMD_maxanom.z = x,
-         MAP_ref_mean = group)
+         CMD_ref_mean = group)
 
 s93.pred %>% 
   ggplot(.,
@@ -514,27 +522,26 @@ s93.pred %>%
              y = predicted)) +
   geom_ribbon(aes(ymin = conf.low,
                   ymax = conf.high,
-                  fill = MAP_ref_mean),
+                  fill = CMD_ref_mean),
               alpha = 0.4) +
-  geom_line(aes(col = MAP_ref_mean),
+  geom_line(aes(col = CMD_ref_mean),
             lwd=2) +
-  scale_color_manual(name = "Reference\nMAP",
-                     values = c("firebrick2",
+  scale_color_manual(name = "Reference\nCMD",
+                     values = c("dodgerblue2",
                                 "goldenrod",
-                                "dodgerblue2"),
+                                "firebrick2"),
                      aesthetics = c("col","fill")) +
   labs(x = "CMD max anomaly (z-score)",
        y = "P(seedlings)")
 
 # SAPLINGS
 # ABLA MAP ref x anom
-
 r19.pred <- ggpredict(r19, 
                       terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
-                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+                                "CMD_ref_mean [150, 300, 450]")) %>% 
   as.data.frame() %>% 
   rename(CMD_maxanom.z = x,
-         MAP_ref_mean = group)
+         CMD_ref_mean = group)
 
 r19.pred %>% 
   ggplot(.,
@@ -542,14 +549,14 @@ r19.pred %>%
              y = predicted)) +
   geom_ribbon(aes(ymin = conf.low,
                   ymax = conf.high,
-                  fill = MAP_ref_mean),
+                  fill = CMD_ref_mean),
               alpha = 0.4) +
-  geom_line(aes(col = MAP_ref_mean),
+  geom_line(aes(col = CMD_ref_mean),
             lwd=2) +
-  scale_color_manual(name = "Reference\nMAP",
-                     values = c("firebrick2",
+  scale_color_manual(name = "Reference\nCMD",
+                     values = c("dodgerblue2",
                                 "goldenrod",
-                                "dodgerblue2"),
+                                "firebrick2"),
                      aesthetics = c("col","fill")) +
   labs(x = "CMD max anomaly (z-score)",
        y = "P(sapling recruits)")
@@ -559,10 +566,10 @@ r19.pred %>%
 
 r93.pred <- ggpredict(r93, 
                       terms = c("CMD_maxanom.z [0.5:3.0, by = 0.05]",
-                                "MAP_ref_mean [500, 1000, 1500]")) %>% 
+                                "CMD_ref_mean [150, 300, 450]")) %>% 
   as.data.frame() %>% 
   rename(CMD_maxanom.z = x,
-         MAP_ref_mean = group)
+         CMD_ref_mean = group)
 
 r93.pred %>% 
   ggplot(.,
@@ -570,19 +577,17 @@ r93.pred %>%
              y = predicted)) +
   geom_ribbon(aes(ymin = conf.low,
                   ymax = conf.high,
-                  fill = MAP_ref_mean),
+                  fill = CMD_ref_mean),
               alpha = 0.4) +
-  geom_line(aes(col = MAP_ref_mean),
+  geom_line(aes(col = CMD_ref_mean),
             lwd=2) +
-  scale_color_manual(name = "Reference\nMAP",
-                     values = c("firebrick2",
+  scale_color_manual(name = "Reference\nCMD",
+                     values = c("dodgerblue2",
                                 "goldenrod",
-                                "dodgerblue2"),
+                                "firebrick2"),
                      aesthetics = c("col","fill")) +
   labs(x = "CMD max anomaly (z-score)",
        y = "P(sapling recruits)")
-
-
 
 ## MORTALITY x tree size x anoms ------
 

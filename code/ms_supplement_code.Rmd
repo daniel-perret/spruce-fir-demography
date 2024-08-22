@@ -1,0 +1,1127 @@
+---
+title: "demo_dataframes"
+author: "D Perret"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      prompt = FALSE,
+                      error = TRUE,
+                      message = FALSE,
+                      cache = FALSE,
+                      cache.lazy = FALSE,
+                      eval = TRUE,
+                      eval.after = "fig.cap")
+
+library(tidyverse)
+library(ggplot2)
+library(ggExtra)
+library(sp)
+library(ggsci)
+library(ggeffects)
+library(brms)
+select <- dplyr::select
+
+# setting my preferred ggplot2 theme
+theme_set(theme_bw())
+theme_update(text = element_text(size=16, color = "black"),
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             strip.background = element_blank(),
+             panel.border=element_rect(size=1.5))
+
+# colors to be used in all map figures
+mapcolor <- "wheat3"
+linecolor <- "gray40"
+regioncolors <- c("Cascade Mixed Forest" = "#009E73",
+                  "Northern Rocky Mountain Forest-Steppe" = "#56B4E9",
+                  "Middle Rocky Mountain Steppe" = "#E69F00",
+                  "Southern Rocky Mountain Steppe" = "#CC79A7",
+                  "zIntermountain Semi-Desert" = "gray20",
+                  "AZ-NM Mountains" = "#D55E00")
+
+```
+
+## Readthis!
+
+This file contains analytical code from the paper titled "Reducing fire severity and extent bolsters subalpine forest resilience to global change through key demographic pathways," by Daniel L Perret, David M Bell, and Harold S J Zald. Specifically, the code below shows how demographic and classification models were structured, trained, and used to generate selected figures shown in the manuscript. All data resources used in the manuscript are publicly available from the United States Forest Service Forest Inventory and Analysis Database, or from ClimateNA (Wang et al. 2021).
+
+Please note that you will need to download all the accompanying data files and change file paths below to match their locations in order for this code to run correctly.
+
+If you have questions about any of the materials contained here, please contact Daniel Perret ([daniel.perret\@usda.gov](mailto:daniel.perret@usda.gov){.email}).
+
+## Demographic models
+
+### Data
+
+This code loads the dataframes used for survival, regeneration, and recruitment models. All the information contained in these dataframes comes from publicly-available sources. Read the descriptions that accompany each file to for information about data fields and values. Some fields were calculated following procedures and using code sourced from [Perret et al. 2023](https://www.sciencedirect.com/science/article/abs/pii/S0378112723003626?via%3Dihub).
+
+```{r}
+ind.mort.dat <- read.csv("data/mortdat_forDryad.csv",header=T) # for survival model
+seed.dat <- read.csv("data/seeddat_forDryad.csv",header=T) # for regeneration model
+sap.dat <- read.csv("data/sapdat_forDryad.csv",header=T) # for recruitment model
+```
+
+### Model code
+
+Note: these models take a long time to run (\~2 days on a machine with 48Gb RAM). If you're interested in just playing with the model results themselves, run the commented code below each model that loads the model object (saved as a \*.Rdata file).
+
+#### Survival
+
+```{r}
+#### Subalpine fir
+
+m19 <- brm(data = ind.mort.dat %>%
+             filter(SPCD==19),
+           formula = bf(SURV ~ (1+exp(-phi))^(-REMPER), # interval correction
+                        phi ~
+                          #tree level predictors
+                          scale(PREV_CR) + scale(PREVDIA) +
+                          prev.damage +
+                          #plot level predictors
+                          scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*
+                          scale(MAT_ref_mean)*scale(CMD_ref_mean) +
+                          scale(PREV_BAH) +
+                          #landscape level predictors
+                          area.fire.prop*area.id.prop +
+                          #cross-scale interactions
+                          scale(PREVDIA)*scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*area.id.prop +
+                          scale(PREVDIA)*scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*area.fire.prop +
+                          (1|ECOSUBCD),
+                        nl=T),
+           family = bernoulli(link="identity"),
+           iter = 10000,
+           chains = 4,
+           cores = getOption("mc.cores",4))
+
+#load("data/m19v7.Rdata")
+
+#### Engelmann spruce
+
+m93 <- brm(data = ind.mort.dat %>%
+             filter(SPCD==93),
+           formula = bf(SURV ~ (1+exp(-phi))^(-REMPER), # interval correction
+                        phi ~
+                          #tree level predictors
+                          scale(PREV_CR) + scale(PREVDIA) +
+                          prev.damage +
+                          #plot level predictors
+                          scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*
+                          scale(MAT_ref_mean)*scale(CMD_ref_mean) +
+                          scale(PREV_BAH) +
+                          #landscape level predictors
+                          area.fire.prop*area.id.prop +
+                          #cross-scale interactions
+                          scale(PREVDIA)*scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*area.id.prop +
+                          scale(PREVDIA)*scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*area.fire.prop +
+                          (1|ECOSUBCD),
+                        nl=T),
+           family = bernoulli(link="identity"),
+           iter = 10000,
+           chains = 4,
+           cores = getOption("mc.cores",4))
+
+#load("data/m93v7.Rdata")
+
+```
+
+#### Regeneration
+
+```{r}
+#### Subalpine fir
+
+s19 <- brm(data = seed.dat %>%
+             filter(SPCD==19),
+           formula = SEED.PRES ~
+             scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*
+             scale(MAT_ref_mean)*scale(CMD_ref_mean)*
+             scale(fire.sev) +
+             scale(PREV_BAH) +
+             (1|ECOSUBCD),
+           family = bernoulli(link="logit"),
+           iter = 20000,
+           chains = 4,
+           cores = getOption("mc.cores",4),
+           control = list(adapt_delta = 0.95))
+
+#load("data/s19v7_cmd.Rdata")
+
+#### Engelmann spruce
+
+s93 <- brm(data = seed.dat %>%
+             filter(SPCD==93),
+           formula = SEED.PRES ~
+             scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*
+             scale(MAT_ref_mean)*scale(CMD_ref_mean)*
+             scale(fire.sev) +
+             scale(PREV_BAH) +
+             (1|ECOSUBCD),
+           family = bernoulli(link="logit"),
+           iter = 20000,
+           chains = 4,
+           cores = getOption("mc.cores",4),
+           control = list(adapt_delta = 0.95))
+
+#load("data/s93v7_cmd.Rdata")
+
+```
+
+#### Recruitment
+
+```{r}
+#### Subalpine fir
+
+r19 <- brm(data = sap.dat %>%
+             filter(SPCD==19),
+           formula = SAP.PRES ~
+             scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*
+             scale(MAT_ref_mean)*scale(CMD_ref_mean)*
+             scale(fire.sev) +
+             scale(PREV_BAH) +
+             (1|ECOSUBCD),
+           family = bernoulli(link="logit"),
+           iter = 20000,
+           chains = 4,
+           cores = getOption("mc.cores",4),
+           control = list(adapt_delta = 0.95))
+
+#load("data/r19v7_cmd.Rdata")
+
+#### Engelmann spruce
+
+r93 <- brm(data = sap.dat %>%
+             filter(SPCD==93),
+           formula = SAP.PRES ~
+             scale(MAT_maxanom.z)*scale(CMD_maxanom.z)*
+             scale(MAT_ref_mean)*scale(CMD_ref_mean)*
+             scale(fire.sev) +
+             scale(PREV_BAH) +
+             (1|ECOSUBCD),
+           family = bernoulli(link="logit"),
+           iter = 20000,
+           chains = 4,
+           cores = getOption("mc.cores",4),
+           control = list(adapt_delta = 0.95))
+
+#load("data/r93v7_cmd.Rdata")
+
+
+```
+
+## Trajectory classification model
+
+### Data
+
+This code takes mean posterior predictions from demographic models (see above), and uses them to predict observed joint trajectories (see main text Box 1 and main text Figure 1) at the ecoregion subsection scale.
+
+```{r}
+### Getting mean posterior predictions from demographic models above
+
+m19.fit <- brms::posterior_predict(m19, ndraws=1000) %>% colMeans()
+m93.fit <- brms::posterior_predict(m93, ndraws=1000) %>% colMeans()
+s19.fit <- brms::posterior_predict(s19, ndraws=1000) %>% colMeans()
+s93.fit <- brms::posterior_predict(s93, ndraws=1000) %>% colMeans()
+r19.fit <- brms::posterior_predict(r19, ndraws=1000) %>% colMeans()
+r93.fit <- brms::posterior_predict(r93, ndraws=1000) %>% colMeans()
+
+### Summarizing to ecoregion subsection, combining across species, and formatting for multinomial classification model
+
+p19 <- ind.mort.dat %>% 
+  filter(SPCD==19) %>%
+  mutate(m.pred = 1-m19.fit) %>% # changing survival to mortality probability
+  group_by(mult.comp.coexist,ECOSUBCD) %>%
+  summarise(m.pred = mean(m.pred),
+            mean.dia = mean(PREVDIA)) %>%
+  left_join(seed.dat %>%
+              filter(SPCD==19) %>%
+              mutate(s.pred = s19.fit,
+                     r.pred = r19.fit) %>%
+              group_by(mult.comp.coexist,ECOSUBCD) %>%
+              summarise(s.pred = mean(s.pred),
+                        r.pred = mean(r.pred)),
+            by=c("mult.comp.coexist","ECOSUBCD")) %>% 
+  na.omit()
+
+p93 <- ind.mort.dat %>%
+  filter(SPCD==93) %>%
+  mutate(m.pred = 1-m93.fit) %>% # changing survival to mortality probability
+  group_by(mult.comp.coexist,ECOSUBCD) %>%
+  summarise(m.pred = mean(m.pred),
+            mean.dia = mean(PREVDIA)) %>%
+  left_join(seed.dat %>%
+              filter(SPCD==93) %>%
+              mutate(s.pred = s93.fit,
+                     r.pred = r93.fit) %>%
+              group_by(mult.comp.coexist,ECOSUBCD) %>%
+              summarise(s.pred = mean(s.pred),
+                        r.pred = mean(r.pred)),
+            by=c("mult.comp.coexist","ECOSUBCD")) %>% 
+  na.omit()
+
+dat <- p19 %>% 
+  left_join(p93,
+            by = c("ECOSUBCD","mult.comp.coexist"),
+            suffix = c(".19",".93")) %>% 
+  ungroup() %>% 
+  mutate(resilience = ifelse(mult.comp.coexist=="resilience",1,0),
+         restructuring = ifelse(mult.comp.coexist=="restructuring",1,0),
+         reassembly = ifelse(mult.comp.coexist=="reassembly",1,0),
+         replacement = ifelse(mult.comp.coexist=="replacement",1,0))
+
+dat$size <- with(dat, resilience+restructuring+reassembly+replacement)
+dat$group <- with(dat, cbind(resilience,restructuring,reassembly,replacement))
+
+
+```
+
+### Model code
+
+Note: this takes some time to run. You can also load the model object itself by running the commented code below.
+
+```{r}
+m.traj <- brm(bf(group | trials(size) ~ m.pred.19*s.pred.19*r.pred.19 +
+                m.pred.93*s.pred.93*r.pred.93),
+           data = dat,
+           family = multinomial(),
+           iter = 10000,
+           chains = 4,
+           cores = getOption("mc.cores",4))
+
+# load("data/m_traj.Rdata")
+```
+
+## Future scenarios
+
+The following code uses data from ClimateNA (Wang et al. 2021), as well as the demographic and trajectory classification models above, to project the distribution of subalpine forest trajectories under future climate and disturbance scenarios.
+
+This is a multi-step process. First, we make mortality, regeneration, and recruitment predictions for each future scenario. Then, we summarise those predictions to the ecoregion subsection-level. Next, we apply those demographic predictions to the trajectory classification model to predict the probability of each ecoregion subsection having each joint trajectory. 
+
+### Demographic predictions
+
+```{r newdata for predictions}
+# these are the fire extent and severity values that we're evaluating in the low and high disturbance scenarios
+lo.area <- 0.05
+hi.area <- 0.20
+
+lo.sev <- 0.50
+hi.sev <- 0.90
+
+# First, we generate the "new" dataframes for each scenario and timestep. All we're doing here is reassigning the relevant fields that we're modifying.
+
+m.currlo <- ind.mort.dat %>% 
+  mutate(area.fire.prop = lo.area,
+         MAT_maxanom.z = MAT_maxanom.z,
+         CMD_maxanom.z = CMD_maxanom.z)
+m.currobs <- ind.mort.dat %>% 
+  mutate(area.fire.prop = area.fire.prop,
+         MAT_maxanom.z = MAT_maxanom.z,
+         CMD_maxanom.z = CMD_maxanom.z)
+m.currhi <- ind.mort.dat %>% 
+  mutate(area.fire.prop = hi.area,
+         MAT_maxanom.z = MAT_maxanom.z,
+         CMD_maxanom.z = CMD_maxanom.z)
+
+s.currlo <- seed.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, lo.sev),
+         MAT_maxanom.z = MAT_maxanom.z,
+         CMD_maxanom.z = CMD_maxanom.z)
+s.currobs <- seed.dat %>% 
+  mutate(fire.sev = fire.sev,
+         MAT_maxanom.z = MAT_maxanom.z,
+         CMD_maxanom.z = CMD_maxanom.z)
+s.currhi <- seed.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, hi.sev),
+         MAT_maxanom.z = MAT_maxanom.z,
+         CMD_maxanom.z = CMD_maxanom.z)
+
+r.currlo <- sap.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, lo.sev),
+         MAT_maxanom.z = MAT_maxanom.z,
+         CMD_maxanom.z = CMD_maxanom.z)
+r.currobs <- sap.dat %>% 
+  mutate(fire.sev = fire.sev,
+         MAT_maxanom.z = MAT_maxanom.z,
+         CMD_maxanom.z = CMD_maxanom.z)
+r.currhi <- sap.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, hi.sev),
+         MAT_maxanom.z = MAT_maxanom.z,
+         CMD_maxanom.z = CMD_maxanom.z)
+
+### 2050 climate
+
+m.2050lo <- ind.mort.dat %>% 
+  mutate(area.fire.prop = lo.area,
+         MAT_maxanom.z = MAT_maxanom_2050.z,
+         CMD_maxanom.z = CMD_maxanom_2050.z)
+m.2050obs <- ind.mort.dat %>% 
+  mutate(area.fire.prop = area.fire.prop,
+         MAT_maxanom.z = MAT_maxanom_2050.z,
+         CMD_maxanom.z = CMD_maxanom_2050.z)
+m.2050hi <- ind.mort.dat %>% 
+  mutate(area.fire.prop = hi.area,
+         MAT_maxanom.z = MAT_maxanom_2050.z,
+         CMD_maxanom.z = CMD_maxanom_2050.z)
+
+s.2050lo <- seed.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, lo.sev),
+         MAT_maxanom.z = MAT_maxanom_2050.z,
+         CMD_maxanom.z = CMD_maxanom_2050.z)
+s.2050obs <- seed.dat %>% 
+  mutate(fire.sev = fire.sev,
+         MAT_maxanom.z = MAT_maxanom_2050.z,
+         CMD_maxanom.z = CMD_maxanom_2050.z)
+s.2050hi <- seed.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, hi.sev),
+         MAT_maxanom.z = MAT_maxanom_2050.z,
+         CMD_maxanom.z = CMD_maxanom_2050.z)
+
+r.2050lo <- sap.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, lo.sev),
+         MAT_maxanom.z = MAT_maxanom_2050.z,
+         CMD_maxanom.z = CMD_maxanom_2050.z)
+r.2050obs <- sap.dat %>% 
+  mutate(fire.sev = fire.sev,
+         MAT_maxanom.z = MAT_maxanom_2050.z,
+         CMD_maxanom.z = CMD_maxanom_2050.z)
+r.2050hi <- sap.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, hi.sev),
+         MAT_maxanom.z = MAT_maxanom_2050.z,
+         CMD_maxanom.z = CMD_maxanom_2050.z)
+
+### 2080 climate
+
+m.2080lo <- ind.mort.dat %>% 
+  mutate(area.fire.prop = lo.area,
+         MAT_maxanom.z = MAT_maxanom_2080.z,
+         CMD_maxanom.z = CMD_maxanom_2080.z)
+m.2080obs <- ind.mort.dat %>% 
+  mutate(area.fire.prop = area.fire.prop,
+         MAT_maxanom.z = MAT_maxanom_2080.z,
+         CMD_maxanom.z = CMD_maxanom_2080.z)
+m.2080hi <- ind.mort.dat %>% 
+  mutate(area.fire.prop = hi.area,
+         MAT_maxanom.z = MAT_maxanom_2080.z,
+         CMD_maxanom.z = CMD_maxanom_2080.z)
+
+s.2080lo <- seed.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, lo.sev),
+         MAT_maxanom.z = MAT_maxanom_2080.z,
+         CMD_maxanom.z = CMD_maxanom_2080.z)
+s.2080obs <- seed.dat %>% 
+  mutate(fire.sev = fire.sev,
+         MAT_maxanom.z = MAT_maxanom_2080.z,
+         CMD_maxanom.z = CMD_maxanom_2080.z)
+s.2080hi <- seed.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, hi.sev),
+         MAT_maxanom.z = MAT_maxanom_2080.z,
+         CMD_maxanom.z = CMD_maxanom_2080.z)
+
+r.2080lo <- sap.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, lo.sev),
+         MAT_maxanom.z = MAT_maxanom_2080.z,
+         CMD_maxanom.z = CMD_maxanom_2080.z)
+r.2080obs <- sap.dat %>% 
+  mutate(fire.sev = fire.sev,
+         MAT_maxanom.z = MAT_maxanom_2080.z,
+         CMD_maxanom.z = CMD_maxanom_2080.z)
+r.2080hi <- sap.dat %>% 
+  mutate(fire.sev = ifelse(fire.sev==0, 0, hi.sev),
+         MAT_maxanom.z = MAT_maxanom_2080.z,
+         CMD_maxanom.z = CMD_maxanom_2080.z)
+
+```
+
+```{r posterior demographic predictions}
+# Next, we generate posterior predictions for each demographic rate for each species under each disturbance scenario at each time step
+
+#MORT
+m19.currlo <- brms::posterior_predict(m19,
+                                      ndraws=1000,
+                                      newdata = m.currlo %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+m93.currlo <- brms::posterior_predict(m93,
+                                      ndraws=1000,
+                                      newdata = m.currlo %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+m19.currobs <- brms::posterior_predict(m19,
+                                      ndraws=1000,
+                                      newdata = m.currobs %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+m93.currobs <- brms::posterior_predict(m93,
+                                      ndraws=1000,
+                                      newdata = m.currobs %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+m19.currhi <- brms::posterior_predict(m19,
+                                      ndraws=1000,
+                                      newdata = m.currhi %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+m93.currhi <- brms::posterior_predict(m93,
+                                      ndraws=1000,
+                                      newdata = m.currhi %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+
+m19.2050lo <- brms::posterior_predict(m19,
+                                      ndraws=1000,
+                                      newdata = m.2050lo %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+m93.2050lo <- brms::posterior_predict(m93,
+                                      ndraws=1000,
+                                      newdata = m.2050lo %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+m19.2050obs <- brms::posterior_predict(m19,
+                                      ndraws=1000,
+                                      newdata = m.2050obs %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+m93.2050obs <- brms::posterior_predict(m93,
+                                      ndraws=1000,
+                                      newdata = m.2050obs %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+m19.2050hi <- brms::posterior_predict(m19,
+                                      ndraws=1000,
+                                      newdata = m.2050hi %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+m93.2050hi <- brms::posterior_predict(m93,
+                                      ndraws=1000,
+                                      newdata = m.2050hi %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+
+m19.2080lo <- brms::posterior_predict(m19,
+                                      ndraws=1000,
+                                      newdata = m.2080lo %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+m93.2080lo <- brms::posterior_predict(m93,
+                                      ndraws=1000,
+                                      newdata = m.2080lo %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+m19.2080obs <- brms::posterior_predict(m19,
+                                      ndraws=1000,
+                                      newdata = m.2080obs %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+m93.2080obs <- brms::posterior_predict(m93,
+                                      ndraws=1000,
+                                      newdata = m.2080obs %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+m19.2080hi <- brms::posterior_predict(m19,
+                                      ndraws=1000,
+                                      newdata = m.2080hi %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+m93.2080hi <- brms::posterior_predict(m93,
+                                      ndraws=1000,
+                                      newdata = m.2080hi %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+
+#SEED
+s19.currlo <- brms::posterior_predict(s19,
+                                      ndraws=1000,
+                                      newdata = s.currlo %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+s93.currlo <- brms::posterior_predict(s93,
+                                      ndraws=1000,
+                                      newdata = s.currlo %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+s19.currobs <- brms::posterior_predict(s19,
+                                      ndraws=1000,
+                                      newdata = s.currobs %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+s93.currobs <- brms::posterior_predict(s93,
+                                      ndraws=1000,
+                                      newdata = s.currobs %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+s19.currhi <- brms::posterior_predict(s19,
+                                      ndraws=1000,
+                                      newdata = s.currhi %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+s93.currhi <- brms::posterior_predict(s93,
+                                      ndraws=1000,
+                                      newdata = s.currhi %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+
+s19.2050lo <- brms::posterior_predict(s19,
+                                      ndraws=1000,
+                                      newdata = s.2050lo %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+s93.2050lo <- brms::posterior_predict(s93,
+                                      ndraws=1000,
+                                      newdata = s.2050lo %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+s19.2050obs <- brms::posterior_predict(s19,
+                                      ndraws=1000,
+                                      newdata = s.2050obs %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+s93.2050obs <- brms::posterior_predict(s93,
+                                      ndraws=1000,
+                                      newdata = s.2050obs %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+s19.2050hi <- brms::posterior_predict(s19,
+                                      ndraws=1000,
+                                      newdata = s.2050hi %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+s93.2050hi <- brms::posterior_predict(s93,
+                                      ndraws=1000,
+                                      newdata = s.2050hi %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+
+s19.2080lo <- brms::posterior_predict(s19,
+                                      ndraws=1000,
+                                      newdata = s.2080lo %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+s93.2080lo <- brms::posterior_predict(s93,
+                                      ndraws=1000,
+                                      newdata = s.2080lo %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+s19.2080obs <- brms::posterior_predict(s19,
+                                      ndraws=1000,
+                                      newdata = s.2080obs %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+s93.2080obs <- brms::posterior_predict(s93,
+                                      ndraws=1000,
+                                      newdata = s.2080obs %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+s19.2080hi <- brms::posterior_predict(s19,
+                                      ndraws=1000,
+                                      newdata = s.2080hi %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+s93.2080hi <- brms::posterior_predict(s93,
+                                      ndraws=1000,
+                                      newdata = s.2080hi %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+
+#SAPS
+
+r19.currlo <- brms::posterior_predict(r19,
+                                      ndraws=1000,
+                                      newdata = r.currlo %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+r93.currlo <- brms::posterior_predict(r93,
+                                      ndraws=1000,
+                                      newdata = r.currlo %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+r19.currobs <- brms::posterior_predict(r19,
+                                      ndraws=1000,
+                                      newdata = r.currobs %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+r93.currobs <- brms::posterior_predict(r93,
+                                      ndraws=1000,
+                                      newdata = r.currobs %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+r19.currhi <- brms::posterior_predict(r19,
+                                      ndraws=1000,
+                                      newdata = r.currhi %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+r93.currhi <- brms::posterior_predict(r93,
+                                      ndraws=1000,
+                                      newdata = r.currhi %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+
+r19.2050lo <- brms::posterior_predict(r19,
+                                      ndraws=1000,
+                                      newdata = r.2050lo %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+r93.2050lo <- brms::posterior_predict(r93,
+                                      ndraws=1000,
+                                      newdata = r.2050lo %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+r19.2050obs <- brms::posterior_predict(r19,
+                                      ndraws=1000,
+                                      newdata = r.2050obs %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+r93.2050obs <- brms::posterior_predict(r93,
+                                      ndraws=1000,
+                                      newdata = r.2050obs %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+r19.2050hi <- brms::posterior_predict(r19,
+                                      ndraws=1000,
+                                      newdata = r.2050hi %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+r93.2050hi <- brms::posterior_predict(r93,
+                                      ndraws=1000,
+                                      newdata = r.2050hi %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+
+r19.2080lo <- brms::posterior_predict(r19,
+                                      ndraws=1000,
+                                      newdata = r.2080lo %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+r93.2080lo <- brms::posterior_predict(r93,
+                                      ndraws=1000,
+                                      newdata = r.2080lo %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+r19.2080obs <- brms::posterior_predict(r19,
+                                      ndraws=1000,
+                                      newdata = r.2080obs %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+r93.2080obs <- brms::posterior_predict(r93,
+                                      ndraws=1000,
+                                      newdata = r.2080obs %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+r19.2080hi <- brms::posterior_predict(r19,
+                                      ndraws=1000,
+                                      newdata = r.2080hi %>% 
+                                        filter(SPCD==19)) %>% colMeans()
+r93.2080hi <- brms::posterior_predict(r93,
+                                      ndraws=1000,
+                                      newdata = r.2080hi %>% 
+                                        filter(SPCD==93)) %>% colMeans()
+```
+
+```{r summarizing to ecoregion subsection}
+
+# summarizing for subalpine fir
+
+p19.preds <- ind.mort.dat %>%
+  filter(SPCD==19) %>%
+  mutate(m19.currlo = 1-m19.currlo, # turning survival into mortality probs
+         m19.currobs = 1-m19.currobs,
+         m19.currhi = 1-m19.currhi,
+         m19.2050lo = 1-m19.2050lo,
+         m19.2050obs = 1-m19.2050obs,
+         m19.2050hi = 1-m19.2050hi,
+         m19.2080lo = 1-m19.2080lo,
+         m19.2080obs = 1-m19.2080obs,
+         m19.2080hi = 1-m19.2080hi) %>%
+  group_by(mult.comp.coexist,ECOSUBCD) %>%
+  summarise(across(m19.currlo:m19.2080hi,mean)) %>%
+  left_join(seed.dat %>%
+              filter(SPCD==19) %>%
+              mutate(s19.currlo = s19.currlo, # regen
+                     s19.currobs = s19.currobs,
+                     s19.currhi = s19.currhi,
+                     s19.2050lo = s19.2050lo,
+                     s19.2050obs = s19.2050obs,
+                     s19.2050hi = s19.2050hi,
+                     s19.2080lo = s19.2080lo,
+                     s19.2080obs = s19.2080obs,
+                     s19.2080hi = s19.2080hi,
+                     r19.currlo = r19.currlo, # recruitment
+                     r19.currobs = r19.currobs,
+                     r19.currhi = r19.currhi,
+                     r19.2050lo = r19.2050lo,
+                     r19.2050obs = r19.2050obs,
+                     r19.2050hi = r19.2050hi,
+                     r19.2080lo = r19.2080lo,
+                     r19.2080obs = r19.2080obs,
+                     r19.2080hi = r19.2080hi) %>%
+              group_by(mult.comp.coexist,ECOSUBCD) %>%
+              summarise(across(s19.currlo:r19.2080hi,mean)),
+            by=c("mult.comp.coexist","ECOSUBCD"))
+
+p93.preds <- ind.mort.dat %>% # same for Engelmann spruce
+  filter(SPCD==93) %>%
+  mutate(m93.currlo = 1-m93.currlo,
+         m93.currobs = 1-m93.currobs,
+         m93.currhi = 1-m93.currhi,
+         m93.2050lo = 1-m93.2050lo,
+         m93.2050obs = 1-m93.2050obs,
+         m93.2050hi = 1-m93.2050hi,
+         m93.2080lo = 1-m93.2080lo,
+         m93.2080obs = 1-m93.2080obs,
+         m93.2080hi = 1-m93.2080hi) %>%
+  group_by(mult.comp.coexist,ECOSUBCD) %>%
+  summarise(across(m93.currlo:m93.2080hi,mean)) %>%
+  left_join(seed.dat %>%
+              filter(SPCD==93) %>%
+              mutate(s93.currlo = s93.currlo,
+                     s93.currobs = s93.currobs,
+                     s93.currhi = s93.currhi,
+                     s93.2050lo = s93.2050lo,
+                     s93.2050obs = s93.2050obs,
+                     s93.2050hi = s93.2050hi,
+                     s93.2080lo = s93.2080lo,
+                     s93.2080obs = s93.2080obs,
+                     s93.2080hi = s93.2080hi,
+                     r93.currlo = r93.currlo,
+                     r93.currobs = r93.currobs,
+                     r93.currhi = r93.currhi,
+                     r93.2050lo = r93.2050lo,
+                     r93.2050obs = r93.2050obs,
+                     r93.2050hi = r93.2050hi,
+                     r93.2080lo = r93.2080lo,
+                     r93.2080obs = r93.2080obs,
+                     r93.2080hi = r93.2080hi) %>%
+              group_by(mult.comp.coexist,ECOSUBCD) %>%
+              summarise(across(s93.currlo:r93.2080hi,mean)),
+            by=c("mult.comp.coexist","ECOSUBCD"))
+
+
+p.m.preds <- p19.preds %>% # combinign species
+  left_join(p93.preds,
+            by = c("ECOSUBCD","mult.comp.coexist")) %>% 
+  ungroup() %>% 
+  na.omit()
+
+```
+
+### Trajectory classification
+
+```{r}
+
+p.m.test <- p.m.preds %>% 
+  select(ECOSUBCD, mult.comp.coexist) %>% 
+  left_join(brms::posterior_predict(try, newdata = p.m.preds %>% 
+                                      mutate(m.pred.19 = m19.currlo,
+                                             m.pred.93 = m93.currlo,
+                                             s.pred.19 = s19.currlo,
+                                             s.pred.93 = s93.currlo,
+                                             r.pred.19 = r19.currlo,
+                                             r.pred.93 = r93.currlo,
+                                             size=1),
+                                    ndraws=1000) %>% 
+              colMeans() %>% as.data.frame() %>% 
+              mutate(ECOSUBCD = p.m.preds$ECOSUBCD,
+                     pred.type = "currlo",
+                     time = "curr",
+                     dist = "lo"),
+            by="ECOSUBCD") %>% 
+  bind_rows(brms::posterior_predict(try, newdata = p.m.preds %>% 
+                                      mutate(m.pred.19 = m19.currobs,
+                                             m.pred.93 = m93.currobs,
+                                             s.pred.19 = s19.currobs,
+                                             s.pred.93 = s93.currobs,
+                                             r.pred.19 = r19.currobs,
+                                             r.pred.93 = r93.currobs,
+                                             size=1),
+                                    ndraws=1000) %>% 
+              colMeans() %>% as.data.frame() %>% 
+              mutate(ECOSUBCD = p.m.preds$ECOSUBCD,
+                     mult.comp.coexist = p.m.preds$mult.comp.coexist,
+                     pred.type = "currobs",
+                     time = "curr",
+                     dist = "obs")) %>% 
+  bind_rows(brms::posterior_predict(try, newdata = p.m.preds %>% 
+                                      mutate(m.pred.19 = m19.currhi,
+                                             m.pred.93 = m93.currhi,
+                                             s.pred.19 = s19.currhi,
+                                             s.pred.93 = s93.currhi,
+                                             r.pred.19 = r19.currhi,
+                                             r.pred.93 = r93.currhi,
+                                             size=1),
+                                    ndraws=1000) %>% 
+              colMeans() %>% as.data.frame() %>% 
+              mutate(ECOSUBCD = p.m.preds$ECOSUBCD,
+                     mult.comp.coexist = p.m.preds$mult.comp.coexist,
+                     pred.type = "currhi",
+                     time = "curr",
+                     dist = "hi")) %>% 
+  bind_rows(brms::posterior_predict(try, newdata = p.m.preds %>% 
+                                      mutate(m.pred.19 = m19.2050lo,
+                                             m.pred.93 = m93.2050lo,
+                                             s.pred.19 = s19.2050lo,
+                                             s.pred.93 = s93.2050lo,
+                                             r.pred.19 = r19.2050lo,
+                                             r.pred.93 = r93.2050lo,
+                                             size=1),
+                                    ndraws=1000) %>% 
+              colMeans() %>% as.data.frame() %>% 
+              mutate(ECOSUBCD = p.m.preds$ECOSUBCD,
+                     mult.comp.coexist = p.m.preds$mult.comp.coexist,
+                     pred.type = "2050lo",
+                     time = "2050",
+                     dist = "lo")) %>% 
+  bind_rows(brms::posterior_predict(try, newdata = p.m.preds %>% 
+                                      mutate(m.pred.19 = m19.2050obs,
+                                             m.pred.93 = m93.2050obs,
+                                             s.pred.19 = s19.2050obs,
+                                             s.pred.93 = s93.2050obs,
+                                             r.pred.19 = r19.2050obs,
+                                             r.pred.93 = r93.2050obs,
+                                             size=1),
+                                    ndraws=1000) %>% 
+              colMeans() %>% as.data.frame() %>% 
+              mutate(ECOSUBCD = p.m.preds$ECOSUBCD,
+                     mult.comp.coexist = p.m.preds$mult.comp.coexist,
+                     pred.type = "2050obs",
+                     time = "2050",
+                     dist = "obs")) %>% 
+  bind_rows(brms::posterior_predict(try, newdata = p.m.preds %>% 
+                                      mutate(m.pred.19 = m19.2050hi,
+                                             m.pred.93 = m93.2050hi,
+                                             s.pred.19 = s19.2050hi,
+                                             s.pred.93 = s93.2050hi,
+                                             r.pred.19 = r19.2050hi,
+                                             r.pred.93 = r93.2050hi,
+                                             size=1),
+                                    ndraws=1000) %>% 
+              colMeans() %>% as.data.frame() %>% 
+              mutate(ECOSUBCD = p.m.preds$ECOSUBCD,
+                     mult.comp.coexist = p.m.preds$mult.comp.coexist,
+                     pred.type = "2050hi",
+                     time = "2050",
+                     dist = "hi")) %>% 
+  bind_rows(brms::posterior_predict(try, newdata = p.m.preds %>% 
+                                      mutate(m.pred.19 = m19.2080lo,
+                                             m.pred.93 = m93.2080lo,
+                                             s.pred.19 = s19.2080lo,
+                                             s.pred.93 = s93.2080lo,
+                                             r.pred.19 = r19.2080lo,
+                                             r.pred.93 = r93.2080lo,
+                                             size=1),
+                                    ndraws=1000) %>% 
+              colMeans() %>% as.data.frame() %>% 
+              mutate(ECOSUBCD = p.m.preds$ECOSUBCD,
+                     mult.comp.coexist = p.m.preds$mult.comp.coexist,
+                     pred.type = "2080lo",
+                     time = "2080",
+                     dist = "lo")) %>% 
+  bind_rows(brms::posterior_predict(try, newdata = p.m.preds %>% 
+                                      mutate(m.pred.19 = m19.2080obs,
+                                             m.pred.93 = m93.2080obs,
+                                             s.pred.19 = s19.2080obs,
+                                             s.pred.93 = s93.2080obs,
+                                             r.pred.19 = r19.2080obs,
+                                             r.pred.93 = r93.2080obs,
+                                             size=1),
+                                    ndraws=1000) %>% 
+              colMeans() %>% as.data.frame() %>% 
+              mutate(ECOSUBCD = p.m.preds$ECOSUBCD,
+                     mult.comp.coexist = p.m.preds$mult.comp.coexist,
+                     pred.type = "2080obs",
+                     time = "2080",
+                     dist = "obs")) %>% 
+  bind_rows(brms::posterior_predict(try, newdata = p.m.preds %>% 
+                                      mutate(m.pred.19 = m19.2080hi,
+                                             m.pred.93 = m93.2080hi,
+                                             s.pred.19 = s19.2080hi,
+                                             s.pred.93 = s93.2080hi,
+                                             r.pred.19 = r19.2080hi,
+                                             r.pred.93 = r93.2080hi,
+                                             size=1),
+                                    ndraws=1000) %>% 
+              colMeans() %>% as.data.frame() %>% 
+              mutate(ECOSUBCD = p.m.preds$ECOSUBCD,
+                     mult.comp.coexist = p.m.preds$mult.comp.coexist,
+                     pred.type = "2080hi",
+                     time = "2080",
+                     dist = "hi"))
+```
+
+
+## Selected figures
+
+The following code demonstrates how selected figures in the paper were generated.
+
+### Figure 2
+
+This figure shows partial effects from each demographic model for each species. The code below shows the partial effects of MAT anomalies on mortality rates for both species, as a demonstration (Figure 2a in the main text). The 'terms' argument can be modified to show the same for any model term in the m19/m93 model objects.
+
+```{r}
+
+m19.pred <- ggpredict(m19,
+                      # modify line below for other covariates
+                      terms = c("MAT_maxanom.z [1.5:3.5, by = 0.05]")) %>% 
+  as.data.frame()
+
+m93.pred <- ggpredict(m93,
+                      # modify line below for other covariates
+                      terms = c("MAT_maxanom.z [1.5:3.5, by = 0.05]")) %>% 
+  as.data.frame()
+
+m19.pred %>% 
+  ggplot(aes(x = x,
+             y = 1-predicted)) +
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = "ABLA"),
+              alpha=0.4)+
+  geom_ribbon(aes(ymin = 1-conf.low,
+                  ymax = 1-conf.high,
+                  fill = "PIEN"),
+              data = m93.pred,
+              alpha=0.4) +
+  geom_line(lwd=2,
+            aes(col = "ABLA")) +
+  geom_line(lwd = 2,
+            data = m93.pred,
+            aes(col = "PIEN")) + 
+  scale_color_manual(values = c("ABLA" = "dodgerblue2",
+                                "PIEN" = "goldenrod"),
+                     aesthetics = c("fill", "col")) +
+  labs(x = "MAT max anomaly (z-score)",
+       y = "P(mortality)") +
+  theme(legend.position = "none")
+
+
+```
+
+### Figure 3
+
+This figure shows partial effects for the trajectory classification model. The code below shows how mortality rates influence the probability of each trajectory (Figure 3a in the main text). Again, code can be modified to reproduce the other panels in Figure 3.
+
+```{r}
+
+# generating posterior predictions for all levels of mortality between 0 and 1 for each species. The 'terms' argument below can be modified for other demographic rates.
+
+traj.dat <- new_data(m.traj, terms=c("m.pred.19 [0:1,by=0.01]",
+                               "m.pred.93 [0:1,by=0.01]")) %>% 
+  brms::posterior_predict(m.traj, ndraws=1000, newdata=.) %>% 
+  colMeans()
+
+traj.dat <- traj.dat %>% bind_cols(new_data(try, 
+                                            terms=
+                                              c("m.pred.19 [0:1,by=0.01]",
+                                            "m.pred.93 [0:1,by=0.01]")))
+
+# plotting posterior predictions
+
+traj.dat %>% 
+  rowwise() %>% 
+  # line below summarizes for the most probable outcome
+  mutate(resilience = ifelse(resilience == max(c(resilience, 
+                                                replacement, 
+                                                restructuring, 
+                                                reassembly)), 
+                             round(resilience,2), 0),
+         restructuring = ifelse(restructuring == max(c(resilience, 
+                                                replacement, 
+                                                restructuring, 
+                                                reassembly)), 
+                             round(restructuring,2), 0),
+         reassembly = ifelse(reassembly == max(c(resilience, 
+                                                replacement, 
+                                                restructuring, 
+                                                reassembly)), 
+                             round(reassembly,2), 0),
+         replacement = ifelse(replacement == max(c(resilience, 
+                                                replacement, 
+                                                restructuring, 
+                                                reassembly)), 
+                             round(replacement,2), 0)) %>%
+    ungroup() %>% 
+  ggplot(.,
+         aes(x = m.pred.19,
+             y = m.pred.93)) +
+  geom_tile(aes(alpha = replacement,
+                fill = "replacement")) +
+  geom_tile(aes(alpha = resilience,
+                fill = "resilience")) +
+  geom_tile(aes(alpha = restructuring,
+                fill = "restructuring")) +
+  geom_tile(aes(alpha = reassembly,
+                fill = "reassembly")) +
+  scale_fill_manual(name = "joint trajectory",
+                    values = c("resilience" = "dodgerblue2",
+                               "restructuring" = "gold2",
+                               "reassembly" = "firebrick2",
+                               "replacement" = "firebrick4"),
+                    aesthetics = c("col","bg","fill")) +
+  scale_alpha_binned(limits = c(0,1), range=c(-0.25,1),
+                     breaks=c(0,0.25,0.5,0.75,1)) +
+  lims(x=c(0,1),y=c(0,1)) +
+  theme(legend.position = "none")
+
+
+
+
+```
+
+#### Figure 4
+
+This figure shows both the areal breakdown of each joint trajectory under future climate/disturbance scenarios, and their spatial distribution. The code below demonstrates how panels a) - c) were generated, and provides example code for mapping the same.
+
+```{r bar charts}
+# First, summarise future scenario posterior predictions across trajectory categories, weighted by spruce-fir area in each ecoregion
+
+areatotal <- sum(p.m$AREA,na.rm=T)
+
+p.m.sums <- p.m.test %>% 
+  group_by(pred.type, dist, time) %>% 
+  summarise(resilience = sum(resilience*AREA)/areatotal,
+            restructuring = sum(restructuring*AREA)/areatotal,
+            reassembly = sum(reassembly*AREA)/areatotal,
+            replacement = sum(replacement*AREA)/areatotal) %>%
+  pivot_longer(cols = resilience:replacement,
+               names_to = "trajectory", 
+               values_to = "prop")
+
+## plot predictions as bar chart
+
+p.m.sums %>% 
+  ggplot(.,
+         aes(x = factor(time, levels = c("curr","2050","2080")),
+             fill = factor(trajectory, levels = c("replacement","reassembly",
+                                                  "restructuring","resilience")))) +
+  geom_bar(aes(weight=prop)) +
+  scale_fill_manual(name = "trajectory",
+                    values = c("resilience" = "dodgerblue2",
+                               "restructuring" = "gold2",
+                               "reassembly" = "firebrick2",
+                               "replacement" = "firebrick4"),
+                    aesthetics = c("fill")) +
+  facet_wrap(facets = ~factor(dist,
+                              levels = c("lo","obs","hi")),
+             nrow=3) +
+  labs(x = "time") +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+```{r map, eval = F}
+
+# This code is supplied as an example of how predictions were mapped. It depends on ancillary spatial data not supplied here. This code was used to generate Figure 4f.
+
+#first format predictions for plotting
+
+p.m.wide <- p.m.test %>% 
+  ungroup() %>% 
+  select(-time,-dist) %>% 
+  pivot_wider(names_from = pred.type, 
+              values_from = resilience:replacement)
+
+# bind predictions to spatial dataframe object for ecoregion subsections
+rad <- dall.er.ablapien %>% # spatial dataframe object
+  select(ECOSUBCD = MAP_UNIT_S) %>% 
+  left_join(p.m.wide)
+
+## plot map
+
+ggplot() +
+  geom_sf(data = cont %>% # shapefile of north american continent
+            as(.,"sf"),
+          col=linecolor,
+          fill = mapcolor,
+          lwd=0.3) +  
+  geom_sf(data = states %>% # shapefile of US state boundaries
+            as(.,"sf"),
+          fill=NA,
+          col=linecolor) +
+  geom_sf(data = rad,
+          col = linecolor,
+          fill = NA)+
+  geom_sf(data = rad,
+          col=NA,
+          # the line below calculates the difference in the probability of resilience between hi and low disturbance scenarios, and uses it to fill each ecoregion subsection shape
+          aes(fill = resilience_2050lo-resilience_2050hi)) + 
+  geom_sf(data = states %>% 
+            as(.,"sf"),
+          col=linecolor,
+          fill=NA,
+          lty=2) +
+  scale_color_steps2(low = "firebrick4",mid="white", high = "dodgerblue2",
+                     aesthetics = "fill", midpoint = 0,
+                     breaks=c(-0.75,-0.5,-0.25,0,0.25,0.5,0.75),
+                     name="") +
+  lims(x = c(-2.5e6, -0.5e6),
+       y = c(1.00e6,3.25e6)) +
+  theme(legend.position="none",
+        panel.background = element_rect(fill="skyblue1"))  
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

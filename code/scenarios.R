@@ -2,6 +2,8 @@ clim2020 <- read.csv("D:/abla_pien_coords_13GCMs_ensemble_ssp370_2011-2020Y.csv"
 clim2050 <- read.csv("D:/abla_pien_coords_13GCMs_ensemble_ssp370_2041-2050Y.csv")
 clim2080 <- read.csv("D:/abla_pien_coords_13GCMs_ensemble_ssp370_2071-2080Y.csv")
 
+load("data/bayes_multinom.Rdata")
+
 clim2020 <- clim2020 %>% 
   select(PLT_CN=ID1, Year, 7:31) %>% 
   mutate(across(where(is.numeric), .fns = ~ifelse(.x==-9999,NA_real_,.x))) %>%
@@ -456,6 +458,12 @@ r93.2080hi <- brms::posterior_predict(r93,
 
 #### binding predictions together ----
 
+p.m <- p.m %>% 
+  left_join(dall.er.ablapien %>% 
+              sf::st_drop_geometry() %>% 
+              select(ECOSUBCD = MAP_UNIT_S,
+                     AREA = AREA_TOTAL_ha_19))
+
 p19.preds <- ind.mort.dat %>%
   filter(SPCD==19) %>%
   mutate(m19.currlo = 1-m19.currlo,
@@ -678,199 +686,4 @@ p.m.test <- p.m.preds %>%
   left_join(p.m %>% 
               select(ECOSUBCD,AREA),
             by="ECOSUBCD")
-
-### attempting a figure
-
-# Okay, need to figure out how to rearrange dataframe to be able to reproduce similar things as last itme.... probably need to first group and summarize for weighted mean by AREA, then pivot_longer to get a row for each ECOSUBCDxCATEGORY combo, then make a geom_bar with weights equal to the weighted mean...
-areatotal <- sum(p.m$AREA,na.rm=T)
-p.m.sums <- p.m.test %>% 
-  # rowwise() %>% 
-  # mutate(resilience = ifelse(resilience==max(c(resilience,restructuring,
-  #                                              reassembly,replacement)),1,0),
-  #        restructuring = ifelse(restructuring==max(c(resilience,restructuring,
-  #                                                    reassembly,replacement)),1,0),
-  #        reassembly = ifelse(reassembly==max(c(resilience,restructuring,
-  #                                              reassembly,replacement)),1,0),
-  #        replacement = ifelse(replacement==max(c(resilience,restructuring,
-  #                                                reassembly,replacement)),1,0)) %>% 
-  # ungroup() %>% 
-  group_by(pred.type, dist, time) %>% 
-
-  summarise(resilience = sum(resilience*AREA)/areatotal,
-            restructuring = sum(restructuring*AREA)/areatotal,
-            reassembly = sum(reassembly*AREA)/areatotal,
-            replacement = sum(replacement*AREA)/areatotal) %>%
-  pivot_longer(cols = resilience:replacement,
-               names_to = "trajectory", 
-               values_to = "prop")
-
-p.m.sums %>% 
-  ggplot(.,
-         aes(x = factor(time, levels = c("curr","2050","2080")),
-             fill = factor(trajectory, levels = c("replacement","reassembly",
-                                                  "restructuring","resilience")))) +
-  geom_bar(aes(weight=prop)) +
-  scale_fill_manual(name = "trajectory",
-                    values = c("resilience" = "dodgerblue2",
-                               "restructuring" = "gold2",
-                               "reassembly" = "firebrick2",
-                               "replacement" = "firebrick4"),
-                    aesthetics = c("fill")) +
-  facet_wrap(facets = ~factor(dist,
-                              levels = c("lo","obs","hi")),
-                              nrow=3) +
-  labs(x = "time") +
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-
-###-----
-p.m.class %>% 
-  select(ECOSUBCD, class.currlo:observed, AREA_ha) %>% 
-  pivot_longer(., cols=class.currlo:observed, 
-               values_to="class",
-               names_to="scenario") %>%
-  na.omit() %>% 
-  filter(scenario%in%c("class.currlo","class.2050lo","class.2080lo","observed")) %>% 
-  ggplot(.,
-         aes(x = factor(scenario,levels=c("observed",
-                                          "class.currlo",
-                                          "class.2050lo",
-                                          "class.2080lo")),
-             fill = factor(class, levels = c("replacement",
-                                             "compositional change",
-                                             "structural change",
-                                             "resilience")))) +
-  geom_bar(aes(weight=AREA_ha)) +
-  scale_fill_manual(name = "joint trajectory",
-                    values = c("resilience" = "dodgerblue2",
-                               "structural change" = "gold2",
-                               "compositional change" = "firebrick2",
-                               "replacement" = "firebrick4"),
-                    aesthetics = c("fill")) +
-  labs(x = "time") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-  
-
-p.m.class %>% 
-  select(ECOSUBCD, class.currlo:observed,AREA_ha) %>% 
-  pivot_longer(., cols=class.currlo:observed, 
-               values_to="class",
-               names_to="scenario") %>%
-  na.omit() %>% 
-  filter(scenario%in%c("class.currhi","class.2050hi","class.2080hi","observed")) %>% 
-  ggplot(.,
-         aes(x = factor(scenario,levels=c("observed",
-                                          "class.currhi",
-                                          "class.2050hi",
-                                          "class.2080hi")),
-             fill = factor(class, levels = c("replacement",
-                                             "compositional change",
-                                             "structural change",
-                                             "resilience")))) +
-  geom_bar(stat = "count",aes(weight=AREA_ha)) +
-  scale_fill_manual(name = "joint trajectory",
-                    values = c("resilience" = "dodgerblue2",
-                               "structural change" = "gold2",
-                               "compositional change" = "firebrick2",
-                               "replacement" = "firebrick4"),
-                    aesthetics = c("fill")) +
-  labs(x = "time") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-
-### Figures for northern rockies ------
-
-p.m.test %>% 
-  filter(grepl("M332|M333", ECOSUBCD)) %>%
-  group_by(pred.type, dist, time) %>% 
-  summarise(resilience = sum(resilience*AREA)/areatotal,
-            restructuring = sum(restructuring*AREA)/areatotal,
-            reassembly = sum(reassembly*AREA)/areatotal,
-            replacement = sum(replacement*AREA)/areatotal) %>%
-  pivot_longer(cols = resilience:replacement,
-               names_to = "trajectory", 
-               values_to = "prop") %>% 
-  ggplot(.,
-         aes(x = factor(time, levels = c("curr","2050","2080")),
-             fill = factor(trajectory, levels = c("replacement","reassembly",
-                                                  "restructuring","resilience")))) +
-  geom_bar(aes(weight=prop)) +
-  scale_fill_manual(name = "trajectory",
-                    values = c("resilience" = "dodgerblue2",
-                               "restructuring" = "gold2",
-                               "reassembly" = "firebrick2",
-                               "replacement" = "firebrick4"),
-                    aesthetics = c("fill")) +
-  facet_wrap(facets = ~factor(dist,
-                              levels = c("lo","obs","hi")),
-             nrow=3) +
-  labs(x = "time") +
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-
-
-### Figures for PNW
-
-p.m.test %>% 
-  filter(grepl("M242", ECOSUBCD)) %>%
-  group_by(pred.type, dist, time) %>% 
-  summarise(resilience = sum(resilience*AREA)/areatotal,
-            restructuring = sum(restructuring*AREA)/areatotal,
-            reassembly = sum(reassembly*AREA)/areatotal,
-            replacement = sum(replacement*AREA)/areatotal) %>%
-  pivot_longer(cols = resilience:replacement,
-               names_to = "trajectory", 
-               values_to = "prop") %>% 
-  ggplot(.,
-         aes(x = factor(time, levels = c("curr","2050","2080")),
-             fill = factor(trajectory, levels = c("replacement","reassembly",
-                                                  "restructuring","resilience")))) +
-  geom_bar(aes(weight=prop)) +
-  scale_fill_manual(name = "trajectory",
-                    values = c("resilience" = "dodgerblue2",
-                               "restructuring" = "gold2",
-                               "reassembly" = "firebrick2",
-                               "replacement" = "firebrick4"),
-                    aesthetics = c("fill")) +
-  facet_wrap(facets = ~factor(dist,
-                              levels = c("lo","obs","hi")),
-             nrow=3) +
-  labs(x = "time") +
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-
-### Figures for Southern Rockies
-
-p.m.test %>% 
-  filter(grepl("M331|313", ECOSUBCD)) %>%
-  group_by(pred.type, dist, time) %>% 
-  summarise(resilience = sum(resilience*AREA)/areatotal,
-            restructuring = sum(restructuring*AREA)/areatotal,
-            reassembly = sum(reassembly*AREA)/areatotal,
-            replacement = sum(replacement*AREA)/areatotal) %>%
-  pivot_longer(cols = resilience:replacement,
-               names_to = "trajectory", 
-               values_to = "prop") %>% 
-  ggplot(.,
-         aes(x = factor(time, levels = c("curr","2050","2080")),
-             fill = factor(trajectory, levels = c("replacement","reassembly",
-                                                  "restructuring","resilience")))) +
-  geom_bar(aes(weight=prop)) +
-  scale_fill_manual(name = "trajectory",
-                    values = c("resilience" = "dodgerblue2",
-                               "restructuring" = "gold2",
-                               "reassembly" = "firebrick2",
-                               "replacement" = "firebrick4"),
-                    aesthetics = c("fill")) +
-  facet_wrap(facets = ~factor(dist,
-                              levels = c("lo","obs","hi")),
-             nrow=3) +
-  labs(x = "time") +
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-
-
-
-
-
-
-
 
